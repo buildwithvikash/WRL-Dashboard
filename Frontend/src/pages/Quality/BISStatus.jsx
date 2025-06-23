@@ -23,7 +23,7 @@ const BISStatus = () => {
       if (res?.data?.success) {
         setBisStatus(res?.data?.data || []);
       }
-    } catch (error) {
+    } catch (error) { 
       toast.error("Failed to fetch BIS Status.");
     } finally {
       setLoading(false);
@@ -157,7 +157,7 @@ const BISStatus = () => {
                   </td>
                   <td
                     className={`px-4 py-3 text-sm ${
-                      report.Status === "Tested"
+                      report.Status === "Test Completed"
                         ? "bg-green-500"
                         : "bg-yellow-300"
                     }`}

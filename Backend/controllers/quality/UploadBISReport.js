@@ -293,7 +293,7 @@ FinalResult AS (
         p.Activity_Year AS Year,
         p.Model_Count AS Prod_Count,
         CASE 
-            WHEN b.ModelName IS NOT NULL THEN 'Tested'
+            WHEN b.ModelName IS NOT NULL THEN 'Test Completed'
             ELSE 'Test Pending'
         END AS Status
     FROM ProductionSummary p
