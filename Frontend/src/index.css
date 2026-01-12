@@ -41,6 +41,15 @@
   height: 8px;
 }
 
+/* global.css */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+}
+
 
 @layer utilities {
   @keyframes marquee {

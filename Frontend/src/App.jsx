@@ -88,6 +88,11 @@ const LogisticsDisplay = lazy(() =>
 
 const Calibiration = lazy(() => import("./pages/Compliance/Calibration"));
 
+const TraningDashboard = lazy(() =>
+  import("./pages/Training/TrainingDashboard")
+);
+const TraningDetail = lazy(() => import("./pages/Training/TrainingDetails"));
+
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function App() {
@@ -313,6 +318,19 @@ function App() {
               <Route
                 path="/compliance/calibiration"
                 element={<Calibiration />}
+              />
+            )}
+            {/*-------------------------------------------------------------- Traning --------------------------------------------------------------*/}
+            {canAccess(["admin"]) && (
+              <Route
+                path="/training/training-dashboard"
+                element={<TraningDashboard />}
+              />
+            )}
+            {canAccess(["admin"]) && (
+              <Route
+                path="/training/training-detail"
+                element={<TraningDetail />}
               />
             )}
             {/*-------------------------------------------------------------- Catch All --------------------------------------------------------------*/}

@@ -7,6 +7,7 @@ import productionRoutes from "./production.route.js";
 import dispatchRoute from "./dispatch.route.js";
 import productionPlaningRoutes from "./planing.route.js";
 import complianceRoute from "./compliance.route.js";
+import trainingRoutes from "./training.routes.js";
 
 const routers = Router();
 
@@ -18,5 +19,6 @@ routers.use("/dispatch", dispatchRoute);
 routers.use("/planing", productionPlaningRoutes);
 routers.use("/visitor", visitorRoutes);
 routers.use("/compliance", complianceRoute);
+routers.use("/trainings", trainingRoutes);
 
 export default routers;

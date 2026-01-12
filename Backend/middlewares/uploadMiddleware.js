@@ -14,11 +14,17 @@ const fiveDaysPlanDir = path.resolve(uploadsDir, "FiveDaysPlan");
 const bisReportDir = path.resolve(uploadsDir, "BISReport");
 const fpaDefectImagesDir = path.resolve(uploadsDir, "FpaDefectImages");
 const calibrationDir = path.resolve(uploadsDir, "Calibration");
+const trainingDir = path.resolve(uploadsDir, "Training");
+const trainingImagesDir = path.resolve(trainingDir, "Images");
+const trainingReportsDir = path.resolve(trainingDir, "Reports");
 
 if (!fs.existsSync(fiveDaysPlanDir)) fs.mkdirSync(fiveDaysPlanDir);
 if (!fs.existsSync(bisReportDir)) fs.mkdirSync(bisReportDir);
 if (!fs.existsSync(fpaDefectImagesDir)) fs.mkdirSync(fpaDefectImagesDir);
 if (!fs.existsSync(calibrationDir)) fs.mkdirSync(calibrationDir);
+if (!fs.existsSync(trainingDir)) fs.mkdirSync(trainingDir);
+if (!fs.existsSync(trainingImagesDir)) fs.mkdirSync(trainingImagesDir);
+if (!fs.existsSync(trainingReportsDir)) fs.mkdirSync(trainingReportsDir);
 
 /* ===================== STORAGE FACTORY ===================== */
 
@@ -96,6 +102,21 @@ const calibrationFileTypes = {
   maxSize: 10 * 1024 * 1024, // 10MB
 };
 
+const trainingMaterialTypes = {
+  allowedTypes: [
+    "application/pdf",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/msword",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "video/mp4",
+  ],
+  errorMessage:
+    "Only PDF, PPT, DOC, EXCEL, or MP4 files are allowed for training materials",
+  maxSize: 10 * 1024 * 1024, // 10MB
+};
+
 /* ===================== FILE FILTERS ===================== */
 
 const createFileFilter = (fileType) => (_, file, cb) => {
@@ -120,6 +141,14 @@ const calibrationFileFilter = (_, file, cb) => {
     cb(null, true);
   } else {
     cb(new Error(calibrationFileTypes.errorMessage), false);
+  }
+};
+
+const trainingMaterialFileFilter = (_, file, cb) => {
+  if (trainingMaterialTypes.allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(trainingMaterialTypes.errorMessage), false);
   }
 };
 
@@ -151,6 +180,27 @@ export const uploadCalibrationReport = multer({
   storage: createStorage("Calibration"),
   fileFilter: calibrationFileFilter,
   limits: { fileSize: calibrationFileTypes.maxSize },
+});
+
+// ✅ Training Material Upload (PPT / PDF / VIDEO / EXCEL)
+export const uploadTrainingMaterial = multer({
+  storage: createStorage("Training"),
+  fileFilter: trainingMaterialFileFilter,
+  limits: { fileSize: trainingMaterialTypes.maxSize },
+});
+
+// ✅ Training Images Upload (Multiple)
+export const uploadTrainingImages = multer({
+  storage: createStorage("Training/Images"),
+  fileFilter: imageFileFilter,
+  limits: { fileSize: imageFileTypes.maxSize },
+});
+
+// ✅ Training Report Upload (Single PDF / DOC)
+export const uploadTrainingReportFile = multer({
+  storage: createStorage("Training/Reports"),
+  fileFilter: createFileFilter("pdf"),
+  limits: { fileSize: fileTypes.pdf.maxSize },
 });
 
 /* ===================== ERROR HANDLER ===================== */
