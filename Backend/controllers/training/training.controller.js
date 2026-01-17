@@ -2,14 +2,15 @@ import sql from "mssql";
 import { dbConfig3 } from "../../config/db.js";
 import { tryCatch } from "../../config/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
+import { sendTrainingAssignedEmail } from "../../config/emailConfig.js";
+import path from "path";
+import fs from "fs";
 
-/* ======================================================
-   CREATE TRAINING
-   POST /training
-====================================================== */
+/* ======================== CREATE TRAINING POST /training ====================================================== */
 export const createTraining = tryCatch(async (req, res) => {
   const d = req.body;
 
+  /* ================= VALIDATION ================= */
   if (
     !d.TrainingTitle ||
     !d.TrainingType ||
@@ -32,16 +33,23 @@ export const createTraining = tryCatch(async (req, res) => {
   const pool = await sql.connect(dbConfig3);
 
   try {
+    /* ================= DATE + STATUS ================= */
     const start = new Date(d.StartDateTime);
     const end = new Date(d.EndDateTime);
     const now = new Date();
 
-    let status = "UPCOMING"; // default
-
-    if (start <= now) {
-      status = "ONGOING"; // training can be started
+    if (end <= start) {
+      throw new AppError(
+        "EndDateTime must be greater than StartDateTime.",
+        400
+      );
     }
 
+    let status = "UPCOMING";
+    if (now >= start && now <= end) status = "ONGOING";
+    else if (now > end) status = "COMPLETED";
+
+    /* ================= INSERT TRAINING ================= */
     const result = await pool
       .request()
       .input("TrainingTitle", d.TrainingTitle)
@@ -51,8 +59,8 @@ export const createTraining = tryCatch(async (req, res) => {
       .input("ExternalTrainerName", d.ExternalTrainerName || null)
       .input("Mode", d.Mode)
       .input("LocationDetails", d.LocationDetails || null)
-      .input("StartDateTime", d.StartDateTime)
-      .input("EndDateTime", d.EndDateTime)
+      .input("StartDateTime", start)
+      .input("EndDateTime", end)
       .input("Mandatory", d.Mandatory ? 1 : 0)
       .input("Status", status).query(`
         INSERT INTO Trainings (
@@ -84,11 +92,61 @@ export const createTraining = tryCatch(async (req, res) => {
         )
       `);
 
+    const trainingId = result.recordset[0].ID;
+
+    /* ================= API RESPONSE ================= */
     res.status(201).json({
       success: true,
       message: "Training created successfully",
-      trainingId: result.recordset[0].ID,
+      trainingId,
     });
+
+    /* ================= SEND MAIL TO TRAINER ================= */
+    try {
+      // 🔹 INTERNAL TRAINER
+      if (d.TrainerType === "INTERNAL" && d.TrainerEmployeeId) {
+        const trainerRes = await pool
+          .request()
+          .input("empId", d.TrainerEmployeeId).query(`
+            SELECT name, employee_email, manager_email
+            FROM users
+            WHERE employee_id = @empId
+          `);
+
+        if (trainerRes.recordset.length) {
+          const trainer = trainerRes.recordset[0];
+
+          await sendTrainingAssignedEmail({
+            to: trainer.employee_email,
+            trainerName: trainer.name,
+            trainingTitle: d.TrainingTitle,
+            trainingType: d.TrainingType,
+            mode: d.Mode,
+            startDateTime: start,
+            endDateTime: end,
+            location: d.LocationDetails || "Online",
+          });
+        }
+      }
+
+      // 🔹 EXTERNAL TRAINER (future ready – optional)
+      /*
+      if (d.TrainerType === "EXTERNAL" && d.ExternalTrainerEmail) {
+        await sendTrainingAssignedEmail({
+          to: d.ExternalTrainerEmail,
+          trainerName: d.ExternalTrainerName,
+          trainingTitle: d.TrainingTitle,
+          trainingType: d.TrainingType,
+          mode: d.Mode,
+          startDateTime: start,
+          endDateTime: end,
+          location: d.LocationDetails || "Online",
+        });
+      }
+      */
+    } catch (mailErr) {
+      console.error("Trainer email failed:", mailErr.message);
+    }
   } finally {
     await pool.close();
   }
@@ -392,21 +450,21 @@ export const saveNominations = tryCatch(async (req, res) => {
   const pool = await sql.connect(dbConfig3);
 
   try {
-    /* ================= DELETE REMOVED NOMINATIONS ================= */
+    /* ========== DELETE REMOVED ========== */
     await pool
       .request()
       .input("TrainingId", trainingId)
       .input("json", JSON.stringify(nominations)).query(`
-        ;DELETE FROM TrainingNominations
+        DELETE FROM TrainingNominations
         WHERE TrainingId = @TrainingId
-          AND EmployeeId NOT IN (
-            SELECT EmployeeId
-            FROM OPENJSON(@json)
-            WITH (EmployeeId NVARCHAR(50) '$.EmployeeId')
-          )
+        AND EmployeeId NOT IN (
+          SELECT EmployeeId
+          FROM OPENJSON(@json)
+          WITH (EmployeeId NVARCHAR(50) '$.EmployeeId')
+        )
       `);
 
-    /* ================= INSERT NEW NOMINATIONS ================= */
+    /* ========== INSERT NEW ========== */
     for (const n of nominations) {
       await pool
         .request()
@@ -419,28 +477,98 @@ export const saveNominations = tryCatch(async (req, res) => {
             SELECT 1 FROM TrainingNominations
             WHERE TrainingId=@TrainingId AND EmployeeId=@EmployeeId
           )
-          INSERT INTO TrainingNominations (
-            TrainingId,
-            EmployeeId,
-            EmployeeName,
-            Department,
-            IsManual,
-            NominatedAt
-          )
-          VALUES (
-            @TrainingId,
-            @EmployeeId,
-            @EmployeeName,
-            @Department,
-            @IsManual,
-            GETDATE()
-          )
+          INSERT INTO TrainingNominations
+          (TrainingId, EmployeeId, EmployeeName, Department, IsManual, NominatedAt)
+          VALUES
+          (@TrainingId, @EmployeeId, @EmployeeName, @Department, @IsManual, GETDATE())
         `);
     }
 
-    res.status(200).json({
+    /* ========== TRAINING DETAILS ========== */
+    const trainingRes = await pool.request().input("TrainingId", trainingId)
+      .query(`
+        SELECT TrainingTitle, TrainingType, Mode, StartDateTime, EndDateTime, LocationDetails
+        FROM Trainings WHERE ID=@TrainingId
+      `);
+
+    const training = trainingRes.recordset[0];
+
+    /* ========== FETCH MATERIALS ========== */
+    const materialsRes = await pool.request().input("TrainingId", trainingId)
+      .query(`
+        SELECT FileName, FilePath, MaterialType
+        FROM TrainingMaterials
+        WHERE TrainingId=@TrainingId
+      `);
+
+    const attachments = materialsRes.recordset
+      .filter(
+        (m) =>
+          m.MaterialType !== "IMAGE" &&
+          m.FilePath &&
+          fs.existsSync(path.join(process.cwd(), m.FilePath))
+      )
+      .map((m) => ({
+        filename: m.FileName,
+        path: path.join(process.cwd(), m.FilePath),
+      }));
+
+    /* ========== EMPLOYEE EMAILS ========== */
+    const empRes = await pool
+      .request()
+      .input("json", JSON.stringify(nominations)).query(`
+        SELECT e.EmployeeId, e.EmployeeName, e.Email, e.Department
+        FROM Employees e
+        JOIN OPENJSON(@json)
+        WITH (EmployeeId NVARCHAR(50) '$.EmployeeId') j
+        ON e.EmployeeId = j.EmployeeId
+      `);
+
+    for (const emp of empRes.recordset) {
+      await sendTrainingNominationEmail({
+        to: emp.Email,
+        employeeName: emp.EmployeeName,
+        trainingTitle: training.TrainingTitle,
+        trainingType: training.TrainingType,
+        mode: training.Mode,
+        startDateTime: training.StartDateTime,
+        endDateTime: training.EndDateTime,
+        location: training.LocationDetails,
+        attachments,
+      });
+    }
+
+    /* ========== GROUP BY DEPT (HOD) ========== */
+    // const deptMap = {};
+    // empRes.recordset.forEach((e) => {
+    //   if (!deptMap[e.Department]) deptMap[e.Department] = [];
+    //   deptMap[e.Department].push(e);
+    // });
+
+    // for (const dept of Object.keys(deptMap)) {
+    //   const hodRes = await pool.request().input("Department", dept).query(`
+    //       SELECT u.name AS HODName, u.employee_email AS HODEmail
+    //       FROM departments d
+    //       JOIN users u ON d.department_head_id = u.employee_id
+    //       WHERE d.deptCode=@Department
+    //     `);
+
+    //   if (hodRes.recordset.length) {
+    //     await sendTrainingNominationHODEmail({
+    //       to: hodRes.recordset[0].HODEmail,
+    //       hodName: hodRes.recordset[0].HODName,
+    //       departmentName: dept,
+    //       trainingTitle: training.TrainingTitle,
+    //       startDateTime: training.StartDateTime,
+    //       endDateTime: training.EndDateTime,
+    //       employees: deptMap[dept],
+    //     });
+    //   }
+    // }
+
+    res.json({
       success: true,
-      message: "Nominations synced successfully",
+      message: "Nominations saved and emails sent with materials",
     });
   } finally {
     await pool.close();

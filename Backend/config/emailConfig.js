@@ -410,6 +410,463 @@ export function sendMail(to, asset, subject, reportLink = "#") {
   );
 }
 
+// -------------------- Training Assigned Email --------------------
+export const sendTrainingAssignedEmail = async ({
+  to,
+  trainerName,
+  trainingTitle,
+  trainingType,
+  mode,
+  startDateTime,
+  endDateTime,
+  location,
+}) => {
+  try {
+    if (!to) {
+      console.warn("No trainer email provided");
+      return false;
+    }
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Training Assignment</title>
+</head>
+<body style="margin:0; padding:20px; background:#f4f6f8; font-family:Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center">
+
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="background:#ffffff; border-radius:10px; overflow:hidden;
+                 box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:#1e40af; padding:20px 26px; color:#ffffff;">
+              <h2 style="margin:0; font-size:22px; font-weight:600;">
+                📘 Training Assignment Notification
+              </h2>
+              <p style="margin:6px 0 0; font-size:13px; opacity:0.9;">
+                Trainer Assignment Details
+              </p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:26px; color:#374151; font-size:14px; line-height:1.7;">
+
+              <p style="margin-top:0;">
+                Dear <b>${trainerName}</b>,
+              </p>
+
+              <p>
+                You have been officially assigned as a <b>Trainer</b> for the
+                following training program. Please find the details below:
+              </p>
+
+              <!-- DETAILS TABLE -->
+              <table width="100%" cellpadding="10" cellspacing="0"
+                style="border-collapse:collapse; margin-top:18px; font-size:13px;">
+                
+                <tr style="background:#f8fafc;">
+                  <td width="38%" style="border:1px solid #e5e7eb; font-weight:600;">
+                    Training Title
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${trainingTitle}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="border:1px solid #e5e7eb; font-weight:600;">
+                    Training Type
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${trainingType}
+                  </td>
+                </tr>
+
+                <tr style="background:#f8fafc;">
+                  <td style="border:1px solid #e5e7eb; font-weight:600;">
+                    Mode
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${mode}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="border:1px solid #e5e7eb; font-weight:600;">
+                    Schedule
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${new Date(startDateTime)}
+                    <br/>
+                    <span style="color:#6b7280;">to</span>
+                    <br/>
+                    ${new Date(endDateTime)}
+                  </td>
+                </tr>
+
+                <tr style="background:#f8fafc;">
+                  <td style="border:1px solid #e5e7eb; font-weight:600;">
+                    Location
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${location || "Online"}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA -->
+              <div
+                style="margin-top:22px; padding:16px;
+                       background:#eef2ff;
+                       border-left:5px solid #1e40af;
+                       border-radius:4px;"
+              >
+                <p style="margin:0 0 8px; font-weight:600;">
+                  🔗 Training Portal Access
+                </p>
+                <p style="margin:0 0 6px; font-size:13px;">
+                  Please log in to the Training Portal for complete details,
+                  materials, and attendance tracking.
+                </p>
+                <a
+                  href="http://10.100.95.161:3000"
+                  target="_blank"
+                  style="color:#1e40af; font-weight:600; text-decoration:none;"
+                >
+                  http://10.100.95.161:3000
+                </a>
+              </div>
+
+              <!-- SIGNATURE -->
+              <p style="margin-top:26px;">
+                Regards,<br/>
+                <b>WRL HR Team</b>
+              </p>
+
+              <!-- AUTO MAIL NOTE -->
+              <p style="margin-top:20px; font-size:12px; color:#6b7280;">
+                ⚠️ This is an <b>automated system-generated email</b>.
+                Please do not reply to this message.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td
+              style="background:#f9fafb;
+                     text-align:center;
+                     padding:14px;
+                     font-size:12px;
+                     color:#6b7280;"
+            >
+              © ${new Date().getFullYear()} Western Refrigeration.
+              All rights reserved.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+    await transporter.sendMail({
+      from: {
+        name: "WRL Training System",
+        address: process.env.SMTP_USER,
+      },
+      to,
+      subject: "New Training Assigned",
+      html,
+    });
+
+    console.log("📩 Training mail sent to:", to);
+    return true;
+  } catch (error) {
+    console.error("Training mail error:", error);
+    return false;
+  }
+};
+
+// -------------------- Training Nomination Email (Employees) --------------------
+export const sendTrainingNominationEmail = async ({
+  to,
+  employeeName,
+  trainingTitle,
+  trainingType,
+  mode,
+  startDateTime,
+  endDateTime,
+  location,
+  attachments = [],
+}) => {
+  if (!to) return false;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Training Scheduled</title>
+</head>
+<body style="margin:0;padding:20px;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center">
+
+        <table width="620" cellpadding="0" cellspacing="0"
+          style="background:#ffffff;border-radius:10px;
+                 box-shadow:0 6px 18px rgba(0,0,0,0.08);
+                 overflow:hidden;">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:#0f766e;padding:20px 24px;color:#ffffff;">
+              <h2 style="margin:0;font-size:22px;font-weight:600;">
+                Training Scheduled
+              </h2>
+              <p style="margin:6px 0 0;font-size:13px;opacity:0.9;">
+                Training Notification
+              </p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:26px;color:#374151;font-size:14px;line-height:1.7;">
+
+              <p style="margin-top:0;">
+                Dear <b>${employeeName}</b>,
+              </p>
+
+              <p>
+                We are pleased to inform you that your training has been
+                <b>successfully scheduled</b>. Please find the details below:
+              </p>
+
+              <!-- DETAILS TABLE -->
+              <table width="100%" cellpadding="10" cellspacing="0"
+                style="border-collapse:collapse;margin-top:18px;font-size:13px;">
+                
+                <tr style="background:#f0fdfa;">
+                  <td width="35%" style="border:1px solid #e5e7eb;font-weight:600;">
+                    Training Title
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${trainingTitle}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="border:1px solid #e5e7eb;font-weight:600;">
+                    Training Type
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${trainingType}
+                  </td>
+                </tr>
+
+                <tr style="background:#f0fdfa;">
+                  <td style="border:1px solid #e5e7eb;font-weight:600;">
+                    Mode
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${mode}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="border:1px solid #e5e7eb;font-weight:600;">
+                    Schedule
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${new Date(startDateTime)}
+                    <br/>
+                    <span style="color:#6b7280;">to</span>
+                    <br/>
+                    ${new Date(endDateTime)}
+                  </td>
+                </tr>
+
+                <tr style="background:#f0fdfa;">
+                  <td style="border:1px solid #e5e7eb;font-weight:600;">
+                    Location
+                  </td>
+                  <td style="border:1px solid #e5e7eb;">
+                    ${location || "Online"}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- PORTAL CTA -->
+              <div
+                style="margin-top:22px;padding:16px;
+                       background:#ecfeff;
+                       border-left:5px solid #0f766e;
+                       border-radius:4px;"
+              >
+                <p style="margin:0 0 8px;font-weight:600;">
+                  Training Portal Access
+                </p>
+                <p style="margin:0 0 6px;font-size:13px;">
+                  Please log in to the Training Portal for training materials,
+                  attendance, and further updates.
+                </p>
+                <a
+                  href="http://10.100.95.161:3000"
+                  target="_blank"
+                  style="color:#0f766e;font-weight:600;text-decoration:none;"
+                >
+                  http://10.100.95.161:3000
+                </a>
+              </div>
+
+              <!-- FOOT NOTE -->
+              <p style="margin-top:22px;font-size:12px;color:#6b7280;">
+                This is an <b>automated system-generated email</b>.
+                Please do not reply to this message.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td
+              style="background:#f9fafb;text-align:center;
+                     padding:14px;font-size:12px;color:#6b7280;"
+            >
+              © ${new Date().getFullYear()} Western Refrigeration.
+              All rights reserved.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+  await transporter.sendMail({
+    from: {
+      name: "WRL Training System",
+      address: process.env.SMTP_USER,
+    },
+    to,
+    subject: "Training Nomination Notification",
+    html,
+    attachments,
+  });
+
+  return true;
+};
+
+// -------------------- Training Nomination Email (HOD) --------------------
+// export const sendTrainingNominationHODEmail = async ({
+//   to,
+//   hodName,
+//   departmentName,
+//   trainingTitle,
+//   startDateTime,
+//   endDateTime,
+//   employees, // [{ EmployeeId, EmployeeName }]
+// }) => {
+//   if (!to) return false;
+
+//   const employeeRows = employees
+//     .map(
+//       (e) => `
+//       <tr>
+//         <td style="border:1px solid #e5e7eb;padding:6px;">${e.EmployeeId}</td>
+//         <td style="border:1px solid #e5e7eb;padding:6px;">${e.EmployeeName}</td>
+//       </tr>`
+//     )
+//     .join("");
+
+//   const html = `
+//   <!DOCTYPE html>
+//   <html>
+//   <body style="font-family:Arial;background:#f4f6f8;padding:20px;">
+//     <table width="100%" cellpadding="0" cellspacing="0">
+//       <tr>
+//         <td align="center">
+//           <table width="650" style="background:#fff;border-radius:8px;padding:24px;">
+//             <tr>
+//               <td style="background:#7c2d12;color:#fff;padding:16px;border-radius:8px 8px 0 0;">
+//                 <h2 style="margin:0;">📋 Department Training Notification</h2>
+//               </td>
+//             </tr>
+
+//             <tr>
+//               <td style="padding:20px;color:#374151;">
+//                 <p>Dear <b>${hodName}</b>,</p>
+
+//                 <p>
+//                   The following employees from <b>${departmentName}</b> have been
+//                   nominated for the training <b>${trainingTitle}</b>.
+//                 </p>
+
+//                 <p>
+//                   <b>Schedule:</b>
+//                   ${new Date(startDateTime).toLocaleString()} →
+//                   ${new Date(endDateTime).toLocaleString()}
+//                 </p>
+
+//                 <table width="100%" cellpadding="6" cellspacing="0"
+//                   style="border-collapse:collapse;margin-top:12px;">
+//                   <tr style="background:#fef3c7;">
+//                     <th style="border:1px solid #e5e7eb;">Employee ID</th>
+//                     <th style="border:1px solid #e5e7eb;">Employee Name</th>
+//                   </tr>
+//                   ${employeeRows}
+//                 </table>
+
+//                 <p style="margin-top:20px;">
+//                   Regards,<br/><b>WRL HR Team</b>
+//                 </p>
+
+//                 <p style="font-size:12px;color:#6b7280;">
+//                   ⚠️ This is an automated email. Please do not reply.
+//                 </p>
+//               </td>
+//             </tr>
+//           </table>
+//         </td>
+//       </tr>
+//     </table>
+//   </body>
+//   </html>
+//   `;
+
+//   await transporter.sendMail({
+//     from: {
+//       name: "WRL Training System",
+//       address: process.env.SMTP_USER,
+//     },
+//     to,
+//     subject: "Employees Nominated for Training",
+//     html,
+//   });
+
+//   return true;
+// };
+
 // -------------------- Verify SMTP --------------------
 transporter.verify((error, success) => {
   if (error) {
