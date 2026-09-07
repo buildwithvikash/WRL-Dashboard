@@ -1,13 +1,30 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import {
-  RefreshCw, Zap, Settings2, ShieldCheck, AlertTriangle, Pencil, FileUp, CloudUpload as CloudUploadIcon,
+  RefreshCw,
+  Zap,
+  Settings2,
+  ShieldCheck,
+  AlertTriangle,
+  Pencil,
+  FileUp,
+  CloudUpload as CloudUploadIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import PopupModal from "../../../components/ui/PopupModal";
 import { baseURL } from "../../../assets/assets";
-import { FieldLabel, inputCls, MONTHS, YEARS, ScanningModal, ConfirmEnergyModal, SearchableSelect, SCAN_STEPS, reportTypeLabel } from "./shared";
+import {
+  FieldLabel,
+  inputCls,
+  MONTHS,
+  YEARS,
+  ScanningModal,
+  ConfirmEnergyModal,
+  SearchableSelect,
+  SCAN_STEPS,
+  reportTypeLabel,
+} from "./shared";
 import BISTestReportsTab from "./BISTestReportsTab";
 import BISReportsTab from "./BISReportsTab";
 import BISComplianceTab from "./BISComplianceTab";
@@ -33,15 +50,19 @@ const TABS = [
 ];
 
 const OVERRIDE_FIELDS = [
-  "introductionFrequencyMonths", "introductionDurationDays",
-  "soundFrequencyMonths", "soundDurationDays",
-  "volumeFrequencyMonths", "volumeDurationDays",
+  "introductionFrequencyMonths",
+  "introductionDurationDays",
+  "soundFrequencyMonths",
+  "soundDurationDays",
+  "volumeFrequencyMonths",
+  "volumeDurationDays",
 ];
 const emptyOverrides = Object.fromEntries(OVERRIDE_FIELDS.map((k) => [k, ""]));
 
 const BISDashboard = () => {
   const location = useLocation();
-  const activeTab = TABS.find((t) => t.path === location.pathname)?.key || "testReports";
+  const activeTab =
+    TABS.find((t) => t.path === location.pathname)?.key || "testReports";
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [status, setStatus] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +72,13 @@ const BISDashboard = () => {
   const [itemToUpdate, setItemToUpdate] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateFields, setUpdateFields] = useState({
-    srNo: "", modelName: "", year: "", month: "", testFrequency: "", description: "", selectedFile: null,
+    srNo: "",
+    modelName: "",
+    year: "",
+    month: "",
+    testFrequency: "",
+    description: "",
+    selectedFile: null,
   });
 
   // ── Post-upload: scanning animation + extracted-value confirmation ────────
@@ -65,7 +92,10 @@ const BISDashboard = () => {
       setScanStep(0);
       return;
     }
-    const timer = setInterval(() => setScanStep((s) => Math.min(s + 1, SCAN_STEPS.length - 1)), 900);
+    const timer = setInterval(
+      () => setScanStep((s) => Math.min(s + 1, SCAN_STEPS.length - 1)),
+      900,
+    );
     return () => clearInterval(timer);
   }, [showScanningModal]);
 
@@ -76,7 +106,13 @@ const BISDashboard = () => {
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryModalMode, setCategoryModalMode] = useState("add");
-  const [categoryForm, setCategoryForm] = useState({ id: null, materialCode: "", modelName: "", category: "0", ...emptyOverrides });
+  const [categoryForm, setCategoryForm] = useState({
+    id: null,
+    materialCode: "",
+    modelName: "",
+    category: "0",
+    ...emptyOverrides,
+  });
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [showOverrideSection, setShowOverrideSection] = useState(false);
@@ -90,14 +126,25 @@ const BISDashboard = () => {
   const [testConfig, setTestConfig] = useState(null);
   const [testConfigLoading, setTestConfigLoading] = useState(false);
   const [schedule, setSchedule] = useState([]);
-  const [scheduleSummary, setScheduleSummary] = useState({ overdue: 0, dueSoon: 0, scheduled: 0, noBaseline: 0 });
+  const [scheduleSummary, setScheduleSummary] = useState({
+    overdue: 0,
+    dueSoon: 0,
+    scheduled: 0,
+    noBaseline: 0,
+  });
   const [scheduleLoading, setScheduleLoading] = useState(false);
 
-  const stats = useMemo(() => ({
-    totalFiles: uploadedFiles.length,
-    uniqueModels: new Set(uploadedFiles.map((f) => f.modelName)).size,
-    freqCounts: uploadedFiles.reduce((acc, f) => { acc[f.testFrequency] = (acc[f.testFrequency] || 0) + 1; return acc; }, {}),
-  }), [uploadedFiles]);
+  const stats = useMemo(
+    () => ({
+      totalFiles: uploadedFiles.length,
+      uniqueModels: new Set(uploadedFiles.map((f) => f.modelName)).size,
+      freqCounts: uploadedFiles.reduce((acc, f) => {
+        acc[f.testFrequency] = (acc[f.testFrequency] || 0) + 1;
+        return acc;
+      }, {}),
+    }),
+    [uploadedFiles],
+  );
 
   // ── API: files / status ─────────────────────────────────────────────────
   const fetchUploadedFiles = async () => {
@@ -141,7 +188,9 @@ const BISDashboard = () => {
       setCategoryLoading(false);
     }
   };
-  useEffect(() => { fetchBisCategories(); }, []);
+  useEffect(() => {
+    fetchBisCategories();
+  }, []);
 
   // ── BIS Approval Flow API ───────────────────────────────────────────────
   const fetchApprovalFlow = async () => {
@@ -155,7 +204,9 @@ const BISDashboard = () => {
       setApprovalFlowLoading(false);
     }
   };
-  useEffect(() => { fetchApprovalFlow(); }, []);
+  useEffect(() => {
+    fetchApprovalFlow();
+  }, []);
 
   const fetchApprovalUsers = async () => {
     try {
@@ -165,7 +216,9 @@ const BISDashboard = () => {
       toast.error("Failed to fetch users");
     }
   };
-  useEffect(() => { fetchApprovalUsers(); }, []);
+  useEffect(() => {
+    fetchApprovalUsers();
+  }, []);
 
   const saveApprovalFlow = async (form) => {
     try {
@@ -173,7 +226,9 @@ const BISDashboard = () => {
       toast.success("Approval flow saved");
       fetchApprovalFlow();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save approval flow");
+      toast.error(
+        err.response?.data?.message || "Failed to save approval flow",
+      );
     }
   };
 
@@ -181,7 +236,11 @@ const BISDashboard = () => {
     try {
       const formData = new FormData();
       formData.append("signature", file);
-      await axios.post(`${baseURL}quality/bis-approval-flow/signature/${role}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      await axios.post(
+        `${baseURL}quality/bis-approval-flow/signature/${role}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
       toast.success("Signature uploaded");
       fetchApprovalFlow();
     } catch (err) {
@@ -197,7 +256,9 @@ const BISDashboard = () => {
       toast.error("Failed to fetch materials");
     }
   };
-  useEffect(() => { fetchType100Materials(); }, []);
+  useEffect(() => {
+    fetchType100Materials();
+  }, []);
 
   // ── BIS Test Schedule API ───────────────────────────────────────────────
   const fetchTestConfig = async () => {
@@ -211,7 +272,9 @@ const BISDashboard = () => {
       setTestConfigLoading(false);
     }
   };
-  useEffect(() => { fetchTestConfig(); }, []);
+  useEffect(() => {
+    fetchTestConfig();
+  }, []);
 
   const saveTestConfig = async (form) => {
     try {
@@ -220,7 +283,9 @@ const BISDashboard = () => {
       fetchTestConfig();
       fetchSchedule();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save schedule settings");
+      toast.error(
+        err.response?.data?.message || "Failed to save schedule settings",
+      );
     }
   };
 
@@ -229,21 +294,32 @@ const BISDashboard = () => {
       setScheduleLoading(true);
       const res = await axios.get(`${baseURL}quality/bis-test-schedule`);
       setSchedule(res?.data?.schedule || []);
-      setScheduleSummary(res?.data?.summary || { overdue: 0, dueSoon: 0, scheduled: 0, noBaseline: 0 });
+      setScheduleSummary(
+        res?.data?.summary || {
+          overdue: 0,
+          dueSoon: 0,
+          scheduled: 0,
+          noBaseline: 0,
+        },
+      );
     } catch {
       toast.error("Failed to fetch BIS test schedule");
     } finally {
       setScheduleLoading(false);
     }
   };
-  useEffect(() => { fetchSchedule(); }, []);
+  useEffect(() => {
+    fetchSchedule();
+  }, []);
 
   // Sets the one-time "last test date" for one model, one or more report
   // types at once — entered inline in the Test Schedule tab's merged
   // No-Baseline row.
   const handleSaveBaseline = async (entries) => {
     try {
-      const res = await axios.post(`${baseURL}quality/bis-test-baseline`, { entries });
+      const res = await axios.post(`${baseURL}quality/bis-test-baseline`, {
+        entries,
+      });
       toast.success(res?.data?.message || "Baseline saved");
       fetchSchedule();
     } catch (err) {
@@ -256,7 +332,10 @@ const BISDashboard = () => {
   // dates from a submitted report are edited via the report itself).
   const handleEditBaselineDate = async (item, lastTestDate) => {
     try {
-      await axios.put(`${baseURL}quality/bis-test-baseline/${item.sourceReportId}`, { lastTestDate });
+      await axios.put(
+        `${baseURL}quality/bis-test-baseline/${item.sourceReportId}`,
+        { lastTestDate },
+      );
       toast.success("Last test date updated");
       fetchSchedule();
     } catch (err) {
@@ -280,30 +359,56 @@ const BISDashboard = () => {
 
   const handleSelectMaterial = (matCode) => {
     const material = type100Materials.find((m) => m.matCode === matCode);
-    setCategoryForm((p) => ({ ...p, materialCode: matCode, modelName: material ? deriveModelName(material.name) : "" }));
+    setCategoryForm((p) => ({
+      ...p,
+      materialCode: matCode,
+      modelName: material ? deriveModelName(material.name) : "",
+    }));
   };
 
   const openAddCategoryModal = () => {
     setCategoryModalMode("add");
-    setCategoryForm({ id: null, materialCode: "", modelName: "", category: "0", ...emptyOverrides });
+    setCategoryForm({
+      id: null,
+      materialCode: "",
+      modelName: "",
+      category: "0",
+      ...emptyOverrides,
+    });
     setShowOverrideSection(false);
     setShowCategoryModal(true);
   };
 
   const openEditCategoryModal = (row) => {
     setCategoryModalMode("edit");
-    const overrides = Object.fromEntries(OVERRIDE_FIELDS.map((k) => [k, row[k] ?? ""]));
-    setCategoryForm({ id: row.id, materialCode: row.materialCode, modelName: row.modelName, category: String(row.category), ...overrides });
-    setShowOverrideSection(OVERRIDE_FIELDS.some((k) => row[k] !== null && row[k] !== undefined));
+    const overrides = Object.fromEntries(
+      OVERRIDE_FIELDS.map((k) => [k, row[k] ?? ""]),
+    );
+    setCategoryForm({
+      id: row.id,
+      materialCode: row.materialCode,
+      modelName: row.modelName,
+      category: String(row.category),
+      ...overrides,
+    });
+    setShowOverrideSection(
+      OVERRIDE_FIELDS.some((k) => row[k] !== null && row[k] !== undefined),
+    );
     setShowCategoryModal(true);
   };
 
   const saveCategoryModal = async () => {
-    const { id, materialCode, modelName, category, ...overrides } = categoryForm;
+    const { id, materialCode, modelName, category, ...overrides } =
+      categoryForm;
     if (!materialCode.trim()) return toast.error("Material Code is required");
     if (!modelName.trim()) return toast.error("Model Name is required");
 
-    const payload = { materialCode: materialCode.trim(), modelName: modelName.trim(), category: Number(category), ...overrides };
+    const payload = {
+      materialCode: materialCode.trim(),
+      modelName: modelName.trim(),
+      category: Number(category),
+      ...overrides,
+    };
 
     try {
       setCategoryLoading(true);
@@ -338,7 +443,9 @@ const BISDashboard = () => {
       fetchBisCategories();
       fetchSchedule();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save schedule override");
+      toast.error(
+        err.response?.data?.message || "Failed to save schedule override",
+      );
       throw err;
     }
   };
@@ -347,11 +454,17 @@ const BISDashboard = () => {
     const formData = new FormData();
     formData.append("photo", file);
     try {
-      await axios.post(`${baseURL}quality/bis-category/${row.id}/photo`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      await axios.post(
+        `${baseURL}quality/bis-category/${row.id}/photo`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
       toast.success("Model photo uploaded");
       fetchBisCategories();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to upload model photo");
+      toast.error(
+        err.response?.data?.message || "Failed to upload model photo",
+      );
     }
   };
 
@@ -366,7 +479,9 @@ const BISDashboard = () => {
   const confirmDeleteCategory = async () => {
     try {
       setCategoryLoading(true);
-      await axios.delete(`${baseURL}quality/bis-category/${categoryToDelete.id}`);
+      await axios.delete(
+        `${baseURL}quality/bis-category/${categoryToDelete.id}`,
+      );
       toast.success("BIS category deleted successfully");
       fetchBisCategories();
       setShowDeleteCategoryModal(false);
@@ -401,7 +516,9 @@ const BISDashboard = () => {
   const handleFetchEnergyData = async (file) => {
     try {
       setShowScanningModal(true);
-      const res = await axios.post(`${baseURL}quality/bis-fetch-energy-data/${file.srNo}`);
+      const res = await axios.post(
+        `${baseURL}quality/bis-fetch-energy-data/${file.srNo}`,
+      );
       if (res?.data?.success) {
         const energyData = res.data.energyData || {};
         setConfirmData({
@@ -413,7 +530,9 @@ const BISDashboard = () => {
         });
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to fetch data from PDF");
+      toast.error(
+        err.response?.data?.message || "Failed to fetch data from PDF",
+      );
     } finally {
       setShowScanningModal(false);
     }
@@ -436,8 +555,13 @@ const BISDashboard = () => {
   const handleUpdate = (item) => {
     setItemToUpdate(item);
     setUpdateFields({
-      srNo: item.srNo, modelName: item.modelName, year: item.year, month: item.month,
-      testFrequency: item.testFrequency, description: item.description, selectedFile: null,
+      srNo: item.srNo,
+      modelName: item.modelName,
+      year: item.year,
+      month: item.month,
+      testFrequency: item.testFrequency,
+      description: item.description,
+      selectedFile: null,
     });
     setShowUpdateModal(true);
   };
@@ -447,16 +571,23 @@ const BISDashboard = () => {
     if (!u.modelName?.trim()) return toast.error("Model Name is required");
     if (!u.year?.toString().trim()) return toast.error("Year is required");
     if (!u.month?.trim()) return toast.error("Month is required");
-    if (!u.testFrequency?.trim()) return toast.error("Test Frequency is required");
+    if (!u.testFrequency?.trim())
+      return toast.error("Test Frequency is required");
     if (!u.description?.trim()) return toast.error("Description is required");
 
     const formData = new FormData();
-    ["modelName", "year", "month", "testFrequency", "description"].forEach((k) => formData.append(k, u[k]?.toString().trim()));
+    ["modelName", "year", "month", "testFrequency", "description"].forEach(
+      (k) => formData.append(k, u[k]?.toString().trim()),
+    );
     if (u.selectedFile) formData.append("file", u.selectedFile);
 
     try {
       setLoading(true);
-      const res = await axios.put(`${baseURL}quality/update-bis-file/${itemToUpdate.srNo}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const res = await axios.put(
+        `${baseURL}quality/update-bis-file/${itemToUpdate.srNo}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
       if (res?.data?.success) {
         toast.success(res.data.message || "BIS Report updated successfully");
         fetchUploadedFiles();
@@ -501,7 +632,10 @@ const BISDashboard = () => {
     try {
       setLoading(true);
       const { srNo, fileName } = itemToDelete;
-      const res = await axios.delete(`${baseURL}quality/delete-bis-file/${srNo}`, { params: { filename: fileName } });
+      const res = await axios.delete(
+        `${baseURL}quality/delete-bis-file/${srNo}`,
+        { params: { filename: fileName } },
+      );
       if (res?.data?.success) {
         toast.success("File deleted successfully");
         fetchUploadedFiles();
@@ -520,23 +654,54 @@ const BISDashboard = () => {
       {/* ── STICKY HEADER ── */}
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div>
-          <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">BIS Report Manager</h1>
-          <p className="text-[11px] text-slate-400">Upload, manage &amp; analyse BIS test reports</p>
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
+            BIS Report Manager
+          </h1>
+          <p className="text-[11px] text-slate-400">
+            Upload, manage &amp; analyse BIS test reports
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {stats.totalFiles > 0 && (
             <>
               <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
-                <span className="text-xl font-bold font-mono text-blue-700">{stats.totalFiles}</span>
-                <span className="text-[10px] text-blue-500 font-medium uppercase tracking-wide">Total Reports</span>
+                <span className="text-xl font-bold font-mono text-blue-700">
+                  {stats.totalFiles || 0}
+                </span>
+                <span className="text-[10px] text-blue-500 font-medium uppercase tracking-wide">
+                  Total Reports
+                </span>
               </div>
               <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-violet-50 border border-violet-100 min-w-[90px]">
-                <span className="text-xl font-bold font-mono text-violet-700">{stats.uniqueModels}</span>
-                <span className="text-[10px] text-violet-500 font-medium uppercase tracking-wide">Models</span>
+                <span className="text-xl font-bold font-mono text-violet-700">
+                  {stats.uniqueModels || 0}
+                </span>
+                <span className="text-[10px] text-violet-500 font-medium uppercase tracking-wide">
+                  Models
+                </span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-violet-50 border border-violet-100 min-w-[90px]">
+                <span className="text-xl font-bold font-mono text-violet-700">
+                  {stats.freqCounts.Monthly || 0}
+                </span>
+                <span className="text-[10px] text-violet-500 font-medium uppercase tracking-wide">
+                  Monthly Reports
+                </span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-amber-50 border border-amber-100 min-w-[90px]">
+                <span className="text-xl font-bold font-mono text-amber-700">
+                  {stats.freqCounts.Quarterly || 0}
+                </span>
+                <span className="text-[10px] text-amber-500 font-medium uppercase tracking-wide">
+                  Quarterly Reports
+                </span>
               </div>
             </>
           )}
-          <button onClick={refreshAll} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-all">
+          <button
+            onClick={refreshAll}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-all cursor-pointer"
+          >
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
         </div>
@@ -545,28 +710,19 @@ const BISDashboard = () => {
       {/* ── BODY ── */}
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
         {/* ── STAT CARDS — legacy PDF archive stats, only relevant on that page ── */}
-        {activeTab === "reports" && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
-            {[
-              { label: "Total Reports", value: stats.totalFiles, cls: "bg-blue-50 border-blue-100", txt: "text-blue-700", sub: "text-blue-500" },
-              { label: "Unique Models", value: stats.uniqueModels, cls: "bg-violet-50 border-violet-100", txt: "text-violet-700", sub: "text-violet-500" },
-              { label: "Monthly Reports", value: stats.freqCounts.Monthly || 0, cls: "bg-emerald-50 border-emerald-100", txt: "text-emerald-700", sub: "text-emerald-500" },
-              { label: "Quarterly Reports", value: stats.freqCounts.Quarterly || 0, cls: "bg-amber-50 border-amber-100", txt: "text-amber-700", sub: "text-amber-500" },
-            ].map(({ label, value, cls, txt, sub }) => (
-              <div key={label} className={`flex flex-col items-center px-4 py-2.5 rounded-xl border ${cls}`}>
-                <span className={`text-2xl font-bold font-mono ${txt}`}>{value}</span>
-                <span className={`text-[10px] font-medium uppercase tracking-wide ${sub}`}>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
 
         {activeTab === "testReports" && <BISTestReportsTab />}
 
         {activeTab === "approvals" && <BISApprovalQueue />}
 
         {activeTab === "reports" && (
-          <BISReportsTab files={uploadedFiles} onEdit={handleUpdate} onDownload={handleDownload} onDelete={handleDeleteFile} onFetchData={handleFetchEnergyData} />
+          <BISReportsTab
+            files={uploadedFiles}
+            onEdit={handleUpdate}
+            onDownload={handleDownload}
+            onDelete={handleDeleteFile}
+            onFetchData={handleFetchEnergyData}
+          />
         )}
 
         {activeTab === "schedule" && (
@@ -584,7 +740,9 @@ const BISDashboard = () => {
           (status.length === 0 && uploadedFiles.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
               <ShieldCheck className="w-12 h-12 opacity-20" strokeWidth={1.2} />
-              <p className="text-sm text-slate-500">No compliance data available yet.</p>
+              <p className="text-sm text-slate-500">
+                No compliance data available yet.
+              </p>
             </div>
           ) : (
             <BISComplianceTab status={status} />
@@ -594,8 +752,12 @@ const BISDashboard = () => {
           (uploadedFiles.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
               <Zap className="w-12 h-12 opacity-20" strokeWidth={1.2} />
-              <p className="text-sm text-slate-500">No data available for energy analysis yet.</p>
-              <p className="text-xs text-slate-400">Upload some BIS reports to see charts.</p>
+              <p className="text-sm text-slate-500">
+                No data available for energy analysis yet.
+              </p>
+              <p className="text-xs text-slate-400">
+                Upload some BIS reports to see charts.
+              </p>
             </div>
           ) : (
             <BISEnergyTab files={uploadedFiles} />
@@ -627,7 +789,10 @@ const BISDashboard = () => {
       </div>
 
       {setupModalRow && (
-        <BISModelSetupModal row={setupModalRow} onClose={() => setSetupModalRow(null)} />
+        <BISModelSetupModal
+          row={setupModalRow}
+          onClose={() => setSetupModalRow(null)}
+        />
       )}
 
       {/* ── UPDATE MODAL ── */}
@@ -647,30 +812,49 @@ const BISDashboard = () => {
           <div className="mt-4 grid md:grid-cols-2 gap-4 text-left">
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <FileUp className="w-3.5 h-3.5 text-blue-500" /> Replace PDF (optional)
+                <FileUp className="w-3.5 h-3.5 text-blue-500" /> Replace PDF
+                (optional)
               </p>
-              <label htmlFor="update-file-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl min-h-[140px] cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-all">
+              <label
+                htmlFor="update-file-upload"
+                className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl min-h-[140px] cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-all"
+              >
                 <input
                   type="file"
                   id="update-file-upload"
                   accept=".pdf"
                   onChange={(e) => {
                     const file = e.target.files[0];
-                    if (file && validatePdf(file)) setUpdateFields((p) => ({ ...p, selectedFile: file }));
+                    if (file && validatePdf(file))
+                      setUpdateFields((p) => ({ ...p, selectedFile: file }));
                   }}
                   className="hidden"
                 />
                 <CloudUploadIcon className="w-8 h-8 text-slate-300 mb-2" />
-                <p className="text-xs text-slate-500">{updateFields.selectedFile ? updateFields.selectedFile.name : "Click to upload new PDF"}</p>
+                <p className="text-xs text-slate-500">
+                  {updateFields.selectedFile
+                    ? updateFields.selectedFile.name
+                    : "Click to upload new PDF"}
+                </p>
               </label>
               {!updateFields.selectedFile && itemToUpdate?.fileName && (
                 <div className="mt-3 p-2 bg-emerald-50 rounded-lg text-center">
-                  <p className="text-[11px] text-emerald-700">Current: {itemToUpdate.fileName}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Kept if no new file selected</p>
+                  <p className="text-[11px] text-emerald-700">
+                    Current: {itemToUpdate.fileName}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Kept if no new file selected
+                  </p>
                 </div>
               )}
               {updateFields.selectedFile && (
-                <button type="button" onClick={() => setUpdateFields((p) => ({ ...p, selectedFile: null }))} className="mt-2 text-[11px] text-red-500 hover:underline flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setUpdateFields((p) => ({ ...p, selectedFile: null }))
+                  }
+                  className="mt-2 text-[11px] text-red-500 hover:underline flex items-center gap-1"
+                >
                   <FileUp className="w-3 h-3" /> Remove new file
                 </button>
               )}
@@ -680,30 +864,89 @@ const BISDashboard = () => {
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <FieldLabel>Model Name</FieldLabel>
-                  <input type="text" value={updateFields.modelName} onChange={(e) => setUpdateFields((p) => ({ ...p, modelName: e.target.value }))} className={inputCls} />
+                  <input
+                    type="text"
+                    value={updateFields.modelName}
+                    onChange={(e) =>
+                      setUpdateFields((p) => ({
+                        ...p,
+                        modelName: e.target.value,
+                      }))
+                    }
+                    className={inputCls}
+                  />
                 </div>
                 <div>
                   <FieldLabel>Sr No</FieldLabel>
-                  <div className="h-9 px-3 flex items-center bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500">{updateFields.srNo}</div>
+                  <div className="h-9 px-3 flex items-center bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500">
+                    {updateFields.srNo}
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: "Year", key: "year", options: ["", ...YEARS].map((y) => ({ value: String(y), label: y || "Select" })) },
-                  { label: "Month", key: "month", options: ["", ...MONTHS].map((m) => ({ value: m, label: m || "Select" })) },
-                  { label: "Frequency", key: "testFrequency", options: [{ value: "", label: "Select" }, ...["Monthly", "Quarterly", "Yearly"].map((v) => ({ value: v, label: v }))] },
+                  {
+                    label: "Year",
+                    key: "year",
+                    options: ["", ...YEARS].map((y) => ({
+                      value: String(y),
+                      label: y || "Select",
+                    })),
+                  },
+                  {
+                    label: "Month",
+                    key: "month",
+                    options: ["", ...MONTHS].map((m) => ({
+                      value: m,
+                      label: m || "Select",
+                    })),
+                  },
+                  {
+                    label: "Frequency",
+                    key: "testFrequency",
+                    options: [
+                      { value: "", label: "Select" },
+                      ...["Monthly", "Quarterly", "Yearly"].map((v) => ({
+                        value: v,
+                        label: v,
+                      })),
+                    ],
+                  },
                 ].map(({ label, key, options }) => (
                   <div key={key}>
                     <FieldLabel>{label}</FieldLabel>
-                    <select value={updateFields[key]} onChange={(e) => setUpdateFields((p) => ({ ...p, [key]: e.target.value }))} className={inputCls}>
-                      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    <select
+                      value={updateFields[key]}
+                      onChange={(e) =>
+                        setUpdateFields((p) => ({
+                          ...p,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      className={inputCls}
+                    >
+                      {options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 ))}
               </div>
               <div>
                 <FieldLabel>Description</FieldLabel>
-                <textarea value={updateFields.description} onChange={(e) => setUpdateFields((p) => ({ ...p, description: e.target.value }))} rows={4} className={`${inputCls} resize-none`} />
+                <textarea
+                  value={updateFields.description}
+                  onChange={(e) =>
+                    setUpdateFields((p) => ({
+                      ...p,
+                      description: e.target.value,
+                    }))
+                  }
+                  rows={4}
+                  className={`${inputCls} resize-none`}
+                />
               </div>
             </div>
           </div>
@@ -731,83 +974,163 @@ const BISDashboard = () => {
         // for light mode — browsers that force-invert undeclared-scheme pages
         // otherwise wash this out under a dark OS/browser theme.
         <div style={{ colorScheme: "light" }}>
-        <PopupModal
-          title={categoryModalMode === "add" ? "Add BIS Category" : "Edit BIS Category"}
-          description=""
-          confirmText={categoryLoading ? "Saving…" : "Save"}
-          cancelText="Cancel"
-          modalId="category-modal"
-          onConfirm={saveCategoryModal}
-          onCancel={() => setShowCategoryModal(false)}
-          icon={<Settings2 className="w-8 h-8 text-blue-500 mx-auto" />}
-          confirmButtonColor="bg-blue-600 hover:bg-blue-700"
-          modalClassName="w-[95%] max-w-lg"
-        >
-          <div className="mt-4 space-y-3 text-left">
-            {categoryModalMode === "add" ? (
+          <PopupModal
+            title={
+              categoryModalMode === "add"
+                ? "Add BIS Category"
+                : "Edit BIS Category"
+            }
+            description=""
+            confirmText={categoryLoading ? "Saving…" : "Save"}
+            cancelText="Cancel"
+            modalId="category-modal"
+            onConfirm={saveCategoryModal}
+            onCancel={() => setShowCategoryModal(false)}
+            icon={<Settings2 className="w-8 h-8 text-blue-500 mx-auto" />}
+            confirmButtonColor="bg-blue-600 hover:bg-blue-700"
+            modalClassName="w-[95%] max-w-lg"
+          >
+            <div className="mt-4 space-y-3 text-left">
+              {categoryModalMode === "add" ? (
+                <div>
+                  <FieldLabel>Material (Material Code auto-filled)</FieldLabel>
+                  <SearchableSelect
+                    placeholder="Type to search material name / code…"
+                    value={categoryForm.materialCode}
+                    onChange={handleSelectMaterial}
+                    options={unclassifiedMaterials.map((m) => ({
+                      value: m.matCode,
+                      label: `${m.name} (${m.matCode})`,
+                    }))}
+                  />
+                  {categoryForm.materialCode && (
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Material Code:{" "}
+                      <span className="font-mono">
+                        {categoryForm.materialCode}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <FieldLabel>Material Code</FieldLabel>
+                  <input
+                    type="text"
+                    value={categoryForm.materialCode}
+                    disabled
+                    className={`${inputCls} bg-slate-100 text-slate-400`}
+                  />
+                </div>
+              )}
               <div>
-                <FieldLabel>Material (Material Code auto-filled)</FieldLabel>
-                <SearchableSelect
-                  placeholder="Type to search material name / code…"
-                  value={categoryForm.materialCode}
-                  onChange={handleSelectMaterial}
-                  options={unclassifiedMaterials.map((m) => ({ value: m.matCode, label: `${m.name} (${m.matCode})` }))}
+                <FieldLabel>Model Name</FieldLabel>
+                <input
+                  type="text"
+                  value={categoryForm.modelName}
+                  onChange={(e) =>
+                    setCategoryForm((p) => ({
+                      ...p,
+                      modelName: e.target.value,
+                    }))
+                  }
+                  className={inputCls}
                 />
-                {categoryForm.materialCode && (
-                  <p className="text-[11px] text-slate-400 mt-1">Material Code: <span className="font-mono">{categoryForm.materialCode}</span></p>
-                )}
               </div>
-            ) : (
               <div>
-                <FieldLabel>Material Code</FieldLabel>
-                <input type="text" value={categoryForm.materialCode} disabled className={`${inputCls} bg-slate-100 text-slate-400`} />
+                <FieldLabel>Category</FieldLabel>
+                <select
+                  value={categoryForm.category}
+                  onChange={(e) =>
+                    setCategoryForm((p) => ({ ...p, category: e.target.value }))
+                  }
+                  className={inputCls}
+                >
+                  <option value="0">Non-BIS</option>
+                  <option value="1">BIS</option>
+                </select>
               </div>
-            )}
-            <div>
-              <FieldLabel>Model Name</FieldLabel>
-              <input type="text" value={categoryForm.modelName} onChange={(e) => setCategoryForm((p) => ({ ...p, modelName: e.target.value }))} className={inputCls} />
-            </div>
-            <div>
-              <FieldLabel>Category</FieldLabel>
-              <select value={categoryForm.category} onChange={(e) => setCategoryForm((p) => ({ ...p, category: e.target.value }))} className={inputCls}>
-                <option value="0">Non-BIS</option>
-                <option value="1">BIS</option>
-              </select>
-            </div>
 
-            {categoryForm.category === "1" && (
-              <div className="border-t border-slate-100 pt-3">
-                <button type="button" onClick={() => setShowOverrideSection((v) => !v)} className="text-[11px] font-semibold text-blue-600 hover:underline">
-                  {showOverrideSection ? "− Hide" : "+ Override"} schedule for this model
-                </button>
-                {showOverrideSection && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-[10px] text-slate-400">Leave blank to use the global default from BIS Config's Test Schedule Settings.</p>
-                    {[
-                      { type: "Introduction", freqKey: "introductionFrequencyMonths", durKey: "introductionDurationDays" },
-                      { type: "Sound", freqKey: "soundFrequencyMonths", durKey: "soundDurationDays" },
-                      { type: "Volume", freqKey: "volumeFrequencyMonths", durKey: "volumeDurationDays" },
-                    ].map(({ type, freqKey, durKey }) => (
-                      <div key={type} className="grid grid-cols-3 gap-2 items-end">
-                        <p className="text-[11px] font-semibold text-slate-600">{reportTypeLabel(type)}</p>
-                        <div>
-                          <FieldLabel>Freq (months)</FieldLabel>
-                          <input type="number" min={1} placeholder="Default" value={categoryForm[freqKey]}
-                            onChange={(e) => setCategoryForm((p) => ({ ...p, [freqKey]: e.target.value }))} className={inputCls} />
+              {categoryForm.category === "1" && (
+                <div className="border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowOverrideSection((v) => !v)}
+                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                  >
+                    {showOverrideSection ? "− Hide" : "+ Override"} schedule for
+                    this model
+                  </button>
+                  {showOverrideSection && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-[10px] text-slate-400">
+                        Leave blank to use the global default from BIS Config's
+                        Test Schedule Settings.
+                      </p>
+                      {[
+                        {
+                          type: "Introduction",
+                          freqKey: "introductionFrequencyMonths",
+                          durKey: "introductionDurationDays",
+                        },
+                        {
+                          type: "Sound",
+                          freqKey: "soundFrequencyMonths",
+                          durKey: "soundDurationDays",
+                        },
+                        {
+                          type: "Volume",
+                          freqKey: "volumeFrequencyMonths",
+                          durKey: "volumeDurationDays",
+                        },
+                      ].map(({ type, freqKey, durKey }) => (
+                        <div
+                          key={type}
+                          className="grid grid-cols-3 gap-2 items-end"
+                        >
+                          <p className="text-[11px] font-semibold text-slate-600">
+                            {reportTypeLabel(type)}
+                          </p>
+                          <div>
+                            <FieldLabel>Freq (months)</FieldLabel>
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="Default"
+                              value={categoryForm[freqKey]}
+                              onChange={(e) =>
+                                setCategoryForm((p) => ({
+                                  ...p,
+                                  [freqKey]: e.target.value,
+                                }))
+                              }
+                              className={inputCls}
+                            />
+                          </div>
+                          <div>
+                            <FieldLabel>Duration (days)</FieldLabel>
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="Default"
+                              value={categoryForm[durKey]}
+                              onChange={(e) =>
+                                setCategoryForm((p) => ({
+                                  ...p,
+                                  [durKey]: e.target.value,
+                                }))
+                              }
+                              className={inputCls}
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <FieldLabel>Duration (days)</FieldLabel>
-                          <input type="number" min={1} placeholder="Default" value={categoryForm[durKey]}
-                            onChange={(e) => setCategoryForm((p) => ({ ...p, [durKey]: e.target.value }))} className={inputCls} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </PopupModal>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </PopupModal>
         </div>
       )}
 
@@ -831,7 +1154,13 @@ const BISDashboard = () => {
 
       {/* ── CONFIRM EXTRACTED ENERGY DATA ── */}
       {confirmData && (
-        <ConfirmEnergyModal data={confirmData} onChange={setConfirmData} onConfirm={handleConfirmEnergyData} onCancel={() => setConfirmData(null)} saving={confirmSaving} />
+        <ConfirmEnergyModal
+          data={confirmData}
+          onChange={setConfirmData}
+          onConfirm={handleConfirmEnergyData}
+          onCancel={() => setConfirmData(null)}
+          saving={confirmSaving}
+        />
       )}
     </div>
   );

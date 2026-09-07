@@ -546,7 +546,7 @@ const Production = () => {
               <button
                 onClick={fetchProductionPlanningData}
                 disabled={loading}
-                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   loading
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200"
@@ -563,7 +563,7 @@ const Production = () => {
               <button
                 onClick={handleUpdate}
                 disabled={loading}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   loading
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                     : "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
@@ -576,7 +576,7 @@ const Production = () => {
               <button
                 onClick={handleAddPlan}
                 disabled={loading}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   loading
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                     : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"

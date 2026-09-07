@@ -175,7 +175,7 @@ const ModelNameUpdate = () => {
                 <button
                   onClick={handleAddFg}
                   disabled={loading}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                     loading
                       ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200"
@@ -187,7 +187,7 @@ const ModelNameUpdate = () => {
                 <button
                   onClick={handleUpdateModelName}
                   disabled={loading || fgData.length === 0}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                     loading || fgData.length === 0
                       ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                       : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
@@ -216,7 +216,7 @@ const ModelNameUpdate = () => {
                 <button
                   onClick={handleUpload}
                   disabled={loading}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                     loading
                       ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200"
@@ -227,7 +227,7 @@ const ModelNameUpdate = () => {
                 </button>
                 <button
                   onClick={handleClearFilters}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 bg-white text-slate-600 hover:border-red-300 hover:text-red-500 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 bg-white text-slate-600 hover:border-red-300 hover:text-red-500 transition-all cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" /> Clear
                 </button>

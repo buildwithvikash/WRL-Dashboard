@@ -645,7 +645,7 @@ const TagUpdate = () => {
                     <button
                       onClick={fetchAssetDetails}
                       disabled={loading}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                         loading
                           ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                           : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200"
