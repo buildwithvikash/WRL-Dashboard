@@ -122,8 +122,20 @@ const InOut = lazy(() => import("../pages/Visitor/InOut"));
 const Reports = lazy(() => import("../pages/Visitor/Reports"));
 const History = lazy(() => import("../pages/Visitor/History"));
 const ManageEmployee = lazy(() => import("../pages/Visitor/ManageEmployee"));
-const EmployeeGatepass = lazy(
-  () => import("../pages/EmployeeManagement/Gatepass"),
+const Gatepassrequest = lazy(
+  () => import("../pages/EmployeeManagement/Gatepassrequest"),
+);
+const Gatepassdepthead = lazy(
+  () => import("../pages/EmployeeManagement/Gatepassdepthead"),
+);
+const Gatepasshrapproval = lazy(
+  () => import("../pages/EmployeeManagement/Gatepasshrapproval"),
+);
+const Gatepasssecuritygate = lazy(
+  () => import("../pages/EmployeeManagement/Gatepasssecuritygate"),
+);
+const Gatepassreports = lazy(
+  () => import("../pages/EmployeeManagement/Gatepassreports"),
 );
 
 const Calibiration = lazy(() => import("../pages/Compliance/Calibration"));
@@ -803,11 +815,32 @@ export const ROUTE_CONFIG = [
     icon: UserCheck,
     label: "Employee Management",
     basePath: "/employee",
+    subgroupConfig: [{ key: "gatepass", label: "Gatepass" }],
     items: [
       {
-        path: "/employee/gatepass",
-        label: "Gatepass",
-        component: EmployeeGatepass,
+        path: "/employee/gatepass/request",
+        label: "GatePassRequest ",
+        component: Gatepassrequest,
+      },
+      {
+        path: "/employee/gatepass/depthead",
+        label: "GatePassDeptHead",
+        component: Gatepassdepthead,
+      },
+      {
+        path: "/employee/gatepass/hr-approval",
+        label: "GatePassHRApproval",
+        component: Gatepasshrapproval,
+      },
+      {
+        path: "/employee/gatepass/security",
+        label: "GatePassSecurityGate",
+        component: Gatepasssecuritygate,
+      },
+      {
+        path: "/employee/gatepass/reports",
+        label: "GatePassReports",
+        component: Gatepassreports,
       },
     ],
   },
