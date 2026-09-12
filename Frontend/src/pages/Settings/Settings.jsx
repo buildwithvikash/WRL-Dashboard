@@ -22,7 +22,10 @@ import {
   Loader2,
 } from "lucide-react";
 import { ROUTE_CONFIG, ROLES } from "../../config/routes.config.js";
-import { fetchRolePermissions, updateRolePermissions } from "../../redux/slices/permissionSlice.js";
+import {
+  fetchRolePermissions,
+  updateRolePermissions,
+} from "../../redux/slices/permissionSlice.js";
 
 const SUPER_ADMIN_ROLE = ROLES.SUPER_ADMIN;
 const IN_PROGRESS_SECTIONS = ["compliance", "auditReport", "reading", "forms"];
@@ -54,14 +57,18 @@ const StatCard = ({ label, value, accent, sub }) => (
 
 export default function Settings() {
   const { user } = useSelector((store) => store.auth);
-  const { rolePermissions, loading } = useSelector((store) => store.permissions);
+  const { rolePermissions, loading } = useSelector(
+    (store) => store.permissions,
+  );
   const dispatch = useDispatch();
   const userRole = user?.roleName?.toLowerCase?.() ?? "";
 
-  const [selectedRole, setSelectedRole] = useState(MANAGEABLE_ROLES[0]?.value ?? "");
+  const [selectedRole, setSelectedRole] = useState(
+    MANAGEABLE_ROLES[0]?.value ?? "",
+  );
   const [permissions, setPermissions] = useState({});
   const [expandedSections, setExpandedSections] = useState(
-    Object.fromEntries(ROUTE_CONFIG.map((s) => [s.key, true]))
+    Object.fromEntries(ROUTE_CONFIG.map((s) => [s.key, true])),
   );
   const [hasChanges, setHasChanges] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -86,13 +93,15 @@ export default function Settings() {
   // ── Guard ─────────────────────────────────────────────────────────────────
   if (userRole !== SUPER_ADMIN_ROLE) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+      <div className="h-full flex flex-col items-center justify-center bg-slate-50">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
             <Lock className="w-8 h-8 text-red-500" />
           </div>
           <h2 className="text-lg font-bold text-gray-900">Access Denied</h2>
-          <p className="text-sm text-gray-400">Only Super Admin can manage permissions.</p>
+          <p className="text-sm text-gray-400">
+            Only Super Admin can manage permissions.
+          </p>
         </div>
       </div>
     );
@@ -105,7 +114,10 @@ export default function Settings() {
   const toggleItem = (sectionKey, itemPath) => {
     setPermissions((prev) => ({
       ...prev,
-      [sectionKey]: { ...prev[sectionKey], [itemPath]: !prev[sectionKey]?.[itemPath] },
+      [sectionKey]: {
+        ...prev[sectionKey],
+        [itemPath]: !prev[sectionKey]?.[itemPath],
+      },
     }));
     setHasChanges(true);
     setSaved(false);
@@ -113,10 +125,17 @@ export default function Settings() {
 
   const toggleSectionAll = (section) => {
     const allItems = [...section.items, ...(section.hiddenItems ?? [])];
-    const allOn = allItems.every((item) => permissions[section.key]?.[item.path]);
+    const allOn = allItems.every(
+      (item) => permissions[section.key]?.[item.path],
+    );
     const next = {};
-    allItems.forEach((item) => { next[item.path] = !allOn; });
-    setPermissions((prev) => ({ ...prev, [section.key]: { ...prev[section.key], ...next } }));
+    allItems.forEach((item) => {
+      next[item.path] = !allOn;
+    });
+    setPermissions((prev) => ({
+      ...prev,
+      [section.key]: { ...prev[section.key], ...next },
+    }));
     setHasChanges(true);
     setSaved(false);
   };
@@ -125,9 +144,9 @@ export default function Settings() {
     const next = {};
     ROUTE_CONFIG.forEach((section) => {
       next[section.key] = {};
-      [...section.items, ...(section.hiddenItems ?? [])].forEach(
-        (item) => { next[section.key][item.path] = on; }
-      );
+      [...section.items, ...(section.hiddenItems ?? [])].forEach((item) => {
+        next[section.key][item.path] = on;
+      });
     });
     setPermissions(next);
     setHasChanges(true);
@@ -137,7 +156,9 @@ export default function Settings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await dispatch(updateRolePermissions({ role: selectedRole, permissions })).unwrap();
+      await dispatch(
+        updateRolePermissions({ role: selectedRole, permissions }),
+      ).unwrap();
       setSaved(true);
       setHasChanges(false);
       setTimeout(() => setSaved(false), 2500);
@@ -154,10 +175,7 @@ export default function Settings() {
     // Permissions are now managed from backend, no hardcoded defaults
     const defaultPermissions = {};
     ROUTE_CONFIG.forEach((section) => {
-      const allItems = [
-        ...section.items,
-        ...(section.hiddenItems ?? []),
-      ];
+      const allItems = [...section.items, ...(section.hiddenItems ?? [])];
 
       allItems.forEach((item) => {
         if (!defaultPermissions[section.key]) {
@@ -175,25 +193,36 @@ export default function Settings() {
   };
 
   // ── Derived stats ─────────────────────────────────────────────────────────
-  const totalVisibleItems = ROUTE_CONFIG.reduce((a, s) => a + s.items.length, 0);
-  const grantedItems = ROUTE_CONFIG.reduce(
-    (a, s) => a + s.items.filter((item) => permissions[s.key]?.[item.path]).length, 0
+  const totalVisibleItems = ROUTE_CONFIG.reduce(
+    (a, s) => a + s.items.length,
+    0,
   );
-  const coveragePct = totalVisibleItems ? Math.round((grantedItems / totalVisibleItems) * 100) : 0;
-  const coverageColor = coveragePct >= 80 ? "#22c55e" : coveragePct >= 40 ? "#f97316" : "#ef4444";
+  const grantedItems = ROUTE_CONFIG.reduce(
+    (a, s) =>
+      a + s.items.filter((item) => permissions[s.key]?.[item.path]).length,
+    0,
+  );
+  const coveragePct = totalVisibleItems
+    ? Math.round((grantedItems / totalVisibleItems) * 100)
+    : 0;
+  const coverageColor =
+    coveragePct >= 80 ? "#22c55e" : coveragePct >= 40 ? "#f97316" : "#ef4444";
 
   const filteredRoles = MANAGEABLE_ROLES.filter((r) =>
-    r.value.toLowerCase().includes(roleSearch.toLowerCase())
+    r.value.toLowerCase().includes(roleSearch.toLowerCase()),
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-
-      {/* ── Sticky Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0 gap-4">
+    <div className="h-full flex flex-col bg-slate-50 font-sans overflow-hidden">
+      {/* ── Header — flex sibling of the scrollable body, never scroll-dependent ── */}
+      <div className="shrink-0 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm gap-4">
         <div>
-          <h1 className="text-lg font-bold text-gray-900 leading-none">Permission Manager</h1>
-          <p className="text-xs text-gray-400">Role Access Control · Super Admin Only</p>
+          <h1 className="text-lg font-bold text-gray-900 leading-none">
+            Permission Manager
+          </h1>
+          <p className="text-xs text-gray-400">
+            Role Access Control · Super Admin Only
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -216,8 +245,8 @@ export default function Settings() {
               saved
                 ? "bg-green-500 text-white shadow-green-200"
                 : hasChanges
-                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
             {isSaving ? (
@@ -230,8 +259,8 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="p-4 lg:p-6 space-y-5">
-
+      {/* ── Scrollable body ──────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
         {/* ── KPI Row — mirrors FPA StatCard grid ──────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
@@ -261,11 +290,9 @@ export default function Settings() {
         </div>
 
         {/* ── Main 2-column layout ─────────────────────────────────────────── */}
-        <div className="flex gap-5 flex-col xl:flex-row">
-
+        <div className="flex gap-5 flex-col lg:flex-row">
           {/* ── Left: Role Panel ─────────────────────────────────────────── */}
-          <div className="xl:w-60 flex-shrink-0 space-y-3">
-
+          <div className="lg:w-60 flex-shrink-0 space-y-3">
             {/* Role selector card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
@@ -289,17 +316,24 @@ export default function Settings() {
                 </div>
               </div>
 
-              <ul className="pb-2 max-h-[52vh] overflow-y-auto">
+              <ul className="pb-2 max-h-[320px] lg:max-h-[52vh] overflow-y-auto">
                 {filteredRoles.map((role) => {
                   // For the selected role, use current permissions from state
                   // For other roles, we'd need to fetch them - for now show 0%
                   const perms = selectedRole === role.value ? permissions : {};
                   const granted = ROUTE_CONFIG.reduce(
-                    (a, s) => a + s.items.filter((item) => perms[s.key]?.[item.path]).length, 0
+                    (a, s) =>
+                      a +
+                      s.items.filter((item) => perms[s.key]?.[item.path])
+                        .length,
+                    0,
                   );
-                  const pct = totalVisibleItems ? Math.round((granted / totalVisibleItems) * 100) : 0;
+                  const pct = totalVisibleItems
+                    ? Math.round((granted / totalVisibleItems) * 100)
+                    : 0;
                   const isSelected = selectedRole === role.value;
-                  const barColor = pct >= 80 ? "#22c55e" : pct >= 40 ? "#f97316" : "#ef4444";
+                  const barColor =
+                    pct >= 80 ? "#22c55e" : pct >= 40 ? "#f97316" : "#ef4444";
 
                   return (
                     <li key={role.key}>
@@ -312,10 +346,15 @@ export default function Settings() {
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className={`text-xs font-semibold capitalize truncate max-w-[130px] ${isSelected ? "text-indigo-700" : "text-gray-700"}`}>
+                          <span
+                            className={`text-xs font-semibold capitalize truncate max-w-[130px] ${isSelected ? "text-indigo-700" : "text-gray-700"}`}
+                          >
                             {role.value}
                           </span>
-                          <span className="text-[10px] font-black" style={{ color: barColor }}>
+                          <span
+                            className="text-[10px] font-black"
+                            style={{ color: barColor }}
+                          >
                             {pct}%
                           </span>
                         </div>
@@ -356,7 +395,6 @@ export default function Settings() {
 
           {/* ── Right: Permission sections ────────────────────────────────── */}
           <div className="flex-1 min-w-0 space-y-3">
-
             {/* Selected role info bar */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -368,8 +406,10 @@ export default function Settings() {
                     {selectedRole}
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    <span className="font-semibold text-indigo-600">{grantedItems}</span>
-                    {" "}of {totalVisibleItems} pages granted
+                    <span className="font-semibold text-indigo-600">
+                      {grantedItems}
+                    </span>{" "}
+                    of {totalVisibleItems} pages granted
                   </p>
                 </div>
               </div>
@@ -377,10 +417,16 @@ export default function Settings() {
                 <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${coveragePct}%`, background: coverageColor }}
+                    style={{
+                      width: `${coveragePct}%`,
+                      background: coverageColor,
+                    }}
                   />
                 </div>
-                <span className="text-xs font-black w-10 text-right" style={{ color: coverageColor }}>
+                <span
+                  className="text-xs font-black w-10 text-right"
+                  style={{ color: coverageColor }}
+                >
                   {coveragePct}%
                 </span>
               </div>
@@ -401,9 +447,11 @@ export default function Settings() {
               const allItems = [...visibleItems, ...hiddenItems];
 
               const grantedInSection = visibleItems.filter(
-                (item) => permissions[section.key]?.[item.path]
+                (item) => permissions[section.key]?.[item.path],
               ).length;
-              const allOn = allItems.every((item) => permissions[section.key]?.[item.path]);
+              const allOn = allItems.every(
+                (item) => permissions[section.key]?.[item.path],
+              );
 
               return (
                 <div
@@ -415,20 +463,29 @@ export default function Settings() {
                   {/* Section header — click to expand/collapse */}
                   <div
                     className={`flex items-center justify-between px-5 py-3.5 cursor-pointer select-none transition-colors ${
-                      isWIP ? "bg-amber-50 hover:bg-amber-100/50" : "hover:bg-slate-50"
+                      isWIP
+                        ? "bg-amber-50 hover:bg-amber-100/50"
+                        : "hover:bg-slate-50"
                     }`}
                     onClick={() => toggleSection(section.key)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-1.5 rounded-lg ${isWIP ? "bg-amber-100" : "bg-indigo-50"}`}>
-                        <SectionIcon className={`w-4 h-4 ${isWIP ? "text-amber-600" : "text-indigo-600"}`} />
+                      <div
+                        className={`p-1.5 rounded-lg ${isWIP ? "bg-amber-100" : "bg-indigo-50"}`}
+                      >
+                        <SectionIcon
+                          className={`w-4 h-4 ${isWIP ? "text-amber-600" : "text-indigo-600"}`}
+                        />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-gray-800">{section.label}</span>
+                          <span className="text-sm font-bold text-gray-800">
+                            {section.label}
+                          </span>
                           {isWIP && (
                             <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
-                              <AlertTriangle className="w-2.5 h-2.5" /> IN PROGRESS
+                              <AlertTriangle className="w-2.5 h-2.5" /> IN
+                              PROGRESS
                             </span>
                           )}
                         </div>
@@ -440,7 +497,10 @@ export default function Settings() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleSectionAll(section); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSectionAll(section);
+                        }}
                         className={`text-xs px-3 py-1 rounded-lg font-semibold transition-colors ${
                           allOn
                             ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
@@ -449,27 +509,33 @@ export default function Settings() {
                       >
                         {allOn ? "Deselect all" : "Select all"}
                       </button>
-                      {isExpanded
-                        ? <ChevronDown className="w-4 h-4 text-gray-400" />
-                        : <ChevronRight className="w-4 h-4 text-gray-400" />
-                      }
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      )}
                     </div>
                   </div>
 
                   {/* Checkbox grid */}
                   {isExpanded && (
                     <div className="border-t border-gray-100 p-4 space-y-4">
-
                       {/* Visible pages — with optional subgroup grouping */}
                       {(() => {
                         const subgroupConfig = section.subgroupConfig ?? [];
                         const ungrouped = visibleItems.filter((i) => !i.group);
                         const subgroups = subgroupConfig
-                          .map((sg) => ({ ...sg, items: visibleItems.filter((i) => i.group === sg.key) }))
+                          .map((sg) => ({
+                            ...sg,
+                            items: visibleItems.filter(
+                              (i) => i.group === sg.key,
+                            ),
+                          }))
                           .filter((sg) => sg.items.length > 0);
 
                         const ItemCard = ({ item }) => {
-                          const checked = permissions[section.key]?.[item.path] === true;
+                          const checked =
+                            permissions[section.key]?.[item.path] === true;
                           return (
                             <label
                               key={item.path}
@@ -482,15 +548,20 @@ export default function Settings() {
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                onChange={() => toggleItem(section.key, item.path)}
+                                onChange={() =>
+                                  toggleItem(section.key, item.path)
+                                }
                                 className="sr-only"
                               />
-                              {checked
-                                ? <CheckSquare className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
-                                : <Square className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
-                              }
+                              {checked ? (
+                                <CheckSquare className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+                              ) : (
+                                <Square className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                              )}
                               <div className="min-w-0">
-                                <p className={`text-xs font-semibold truncate ${checked ? "text-indigo-800" : "text-gray-600"}`}>
+                                <p
+                                  className={`text-xs font-semibold truncate ${checked ? "text-indigo-800" : "text-gray-600"}`}
+                                >
                                   {item.label}
                                 </p>
                                 <p className="text-[10px] text-gray-400 font-mono truncate mt-0.5">
@@ -504,9 +575,13 @@ export default function Settings() {
                         if (!subgroups.length) {
                           return (
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">Pages</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">
+                                Pages
+                              </p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                                {visibleItems.map((item) => <ItemCard key={item.path} item={item} />)}
+                                {visibleItems.map((item) => (
+                                  <ItemCard key={item.path} item={item} />
+                                ))}
                               </div>
                             </div>
                           );
@@ -516,30 +591,45 @@ export default function Settings() {
                           <div className="space-y-4">
                             {ungrouped.length > 0 && (
                               <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">General</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">
+                                  General
+                                </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                                  {ungrouped.map((item) => <ItemCard key={item.path} item={item} />)}
+                                  {ungrouped.map((item) => (
+                                    <ItemCard key={item.path} item={item} />
+                                  ))}
                                 </div>
                               </div>
                             )}
                             {subgroups.map((sg) => {
-                              const sgGranted = sg.items.filter((i) => permissions[section.key]?.[i.path]).length;
+                              const sgGranted = sg.items.filter(
+                                (i) => permissions[section.key]?.[i.path],
+                              ).length;
                               const sgAllOn = sgGranted === sg.items.length;
                               return (
                                 <div key={sg.key}>
                                   <div className="flex items-center justify-between mb-2.5">
                                     <div className="flex items-center gap-2">
                                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{sg.label}</p>
-                                      <span className="text-[10px] text-gray-300">{sgGranted}/{sg.items.length}</span>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                        {sg.label}
+                                      </p>
+                                      <span className="text-[10px] text-gray-300">
+                                        {sgGranted}/{sg.items.length}
+                                      </span>
                                     </div>
                                     <button
                                       onClick={() => {
                                         const next = {};
-                                        sg.items.forEach((i) => { next[i.path] = !sgAllOn; });
+                                        sg.items.forEach((i) => {
+                                          next[i.path] = !sgAllOn;
+                                        });
                                         setPermissions((prev) => ({
                                           ...prev,
-                                          [section.key]: { ...prev[section.key], ...next },
+                                          [section.key]: {
+                                            ...prev[section.key],
+                                            ...next,
+                                          },
                                         }));
                                         setHasChanges(true);
                                         setSaved(false);
@@ -550,7 +640,9 @@ export default function Settings() {
                                     </button>
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                                    {sg.items.map((item) => <ItemCard key={item.path} item={item} />)}
+                                    {sg.items.map((item) => (
+                                      <ItemCard key={item.path} item={item} />
+                                    ))}
                                   </div>
                                 </div>
                               );
@@ -558,7 +650,6 @@ export default function Settings() {
                           </div>
                         );
                       })()}
-
 
                       {/* System / hidden routes */}
                       {hiddenItems.length > 0 && (
@@ -571,7 +662,8 @@ export default function Settings() {
                           </p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                             {hiddenItems.map((item) => {
-                              const checked = permissions[section.key]?.[item.path] === true;
+                              const checked =
+                                permissions[section.key]?.[item.path] === true;
                               return (
                                 <label
                                   key={item.path}
@@ -584,18 +676,25 @@ export default function Settings() {
                                   <input
                                     type="checkbox"
                                     checked={checked}
-                                    onChange={() => toggleItem(section.key, item.path)}
+                                    onChange={() =>
+                                      toggleItem(section.key, item.path)
+                                    }
                                     className="sr-only"
                                   />
-                                  {checked
-                                    ? <CheckSquare className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
-                                    : <Square className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
-                                  }
+                                  {checked ? (
+                                    <CheckSquare className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                                  ) : (
+                                    <Square className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                                  )}
                                   <div className="min-w-0">
-                                    <p className={`text-xs font-semibold font-mono truncate ${checked ? "text-purple-800" : "text-gray-500"}`}>
+                                    <p
+                                      className={`text-xs font-semibold font-mono truncate ${checked ? "text-purple-800" : "text-gray-500"}`}
+                                    >
                                       {item.path}
                                     </p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">system route</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                      system route
+                                    </p>
                                   </div>
                                 </label>
                               );
