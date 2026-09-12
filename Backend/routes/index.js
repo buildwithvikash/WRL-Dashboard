@@ -20,6 +20,8 @@ import energyMeterRoute from "./energyMeter.route.js";
 import visionReportRoute from "./visionReport.route.js";
 import chemicalRoute from "./chemical.route.js";
 import settingsRoute from "./settings.route.js";
+import gatepassRoute from "./gatepass.route.js";
+import attendanceRoute from "./attendance.route.js";
 
 const routers = Router();
 
@@ -43,6 +45,8 @@ routers.use("/vision-report", visionReportRoute);
 
 routers.use("/dispatch", dispatchRoute);
 routers.use("/visitor", visitorRoutes);
+routers.use("/gatepass", gatepassRoute);
+routers.use("/manpower", attendanceRoute);
 routers.use("/compliance", complianceRoute);
 routers.use("/audit-report", auditReport);
 routers.use("/chemical", chemicalRoute);

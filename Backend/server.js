@@ -9,6 +9,7 @@ import {
   dbConfig1,
   dbConfig2,
   dbConfig3,
+  dbConfig4,
 } from "./config/db.config.js";
 import { startCalibrationCron } from "./cron/calibrationEscalation.js";
 import { startManpowerCron } from "../Backend/cron/manpower.cron.js";
@@ -54,13 +55,21 @@ app.use("/uploads", express.static(path.resolve("uploads"))); // Static files
       console.error("[Mail] Failed to load DB-saved SMTP override at startup:", err.message),
     );
 
-    // Server 2 (WWMS) and Server 4 (CLMS) are remote-only with no local backup —
-    // skip them instead of crashing the app when offline.
+    // Server 2 (WWMS) and Server 4 (CLMS/attendance) both have local backups
+    // now, but are still optional here — skip gracefully instead of crashing
+    // the whole app if either happens to be unreachable.
     try {
       global.pool2 = await connectToDB(dbConfig2);
       console.log("Successfully connected to Server 2.");
     } catch (error) {
       console.warn("Server 2 (WWMS) unreachable, skipping:", error.message);
+    }
+
+    try {
+      global.pool4 = await connectToDB(dbConfig4);
+      console.log("Successfully connected to Server 4.");
+    } catch (error) {
+      console.warn("Server 4 (CLMS) unreachable, skipping:", error.message);
     }
   } catch (error) {
     console.error("Database connection failed:", error);

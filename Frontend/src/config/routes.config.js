@@ -138,6 +138,12 @@ const Gatepassreports = lazy(
   () => import("../pages/EmployeeManagement/Gatepassreports"),
 );
 
+const AttendanceRegister = lazy(() => import("../pages/Forms/AttendanceRegister"));
+const MyAttendance = lazy(() => import("../pages/Forms/MyAttendance"));
+const AttendanceDashboard = lazy(() => import("../pages/Forms/AttendanceDashboard"));
+const LeaveApplication = lazy(() => import("../pages/Forms/LeaveApplication"));
+const LeaveApproval = lazy(() => import("../pages/Forms/LeaveApproval"));
+
 const Calibiration = lazy(() => import("../pages/Compliance/Calibration"));
 
 const TemplateBuilder = lazy(
@@ -815,32 +821,70 @@ export const ROUTE_CONFIG = [
     icon: UserCheck,
     label: "Employee Management",
     basePath: "/employee",
-    subgroupConfig: [{ key: "gatepass", label: "Gatepass" }],
+    subgroupConfig: [
+      { key: "gatepass", label: "Gatepass" },
+      { key: "attendance", label: "Attendance" },
+    ],
     items: [
       {
         path: "/employee/gatepass/request",
         label: "GatePassRequest ",
         component: Gatepassrequest,
+        group: "gatepass",
       },
       {
         path: "/employee/gatepass/depthead",
         label: "GatePassDeptHead",
         component: Gatepassdepthead,
+        group: "gatepass",
       },
       {
         path: "/employee/gatepass/hr-approval",
         label: "GatePassHRApproval",
         component: Gatepasshrapproval,
+        group: "gatepass",
       },
       {
         path: "/employee/gatepass/security",
         label: "GatePassSecurityGate",
         component: Gatepasssecuritygate,
+        group: "gatepass",
       },
       {
         path: "/employee/gatepass/reports",
         label: "GatePassReports",
         component: Gatepassreports,
+        group: "gatepass",
+      },
+      {
+        path: "/employee/attendance/register",
+        label: "Attendance Register",
+        component: AttendanceRegister,
+        group: "attendance",
+      },
+      {
+        path: "/employee/attendance/my",
+        label: "My Attendance",
+        component: MyAttendance,
+        group: "attendance",
+      },
+      {
+        path: "/employee/attendance/dashboard",
+        label: "Attendance Dashboard",
+        component: AttendanceDashboard,
+        group: "attendance",
+      },
+      {
+        path: "/employee/attendance/leave-application",
+        label: "Leave Application",
+        component: LeaveApplication,
+        group: "attendance",
+      },
+      {
+        path: "/employee/attendance/leave-approval",
+        label: "Leave Approval",
+        component: LeaveApproval,
+        group: "attendance",
       },
     ],
   },

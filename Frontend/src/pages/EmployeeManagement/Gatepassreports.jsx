@@ -6,7 +6,7 @@ import ExportButton from "../../components/ui/ExportButton.jsx";
 import useGatePasses from "../../hooks/Usegatepasses.js";
 import GatePassHeader from "../../components/employeeManagement/Gatepassheader.jsx"
 import { StatusBadge, EmptyState } from "../../components/employeeManagement/Gatepassui.jsx"
-import { STATUS_FILTER_OPTIONS } from "./constants.js";
+import { STATUS_FILTER_OPTIONS } from "./Constants.js";
 
 const GatePassReports = () => {
   const { passes, initialLoading, refreshing, fetchPasses, fetchExportData } =

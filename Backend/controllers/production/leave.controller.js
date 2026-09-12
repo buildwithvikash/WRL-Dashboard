@@ -81,28 +81,40 @@ export const getAllLeaves = tryCatch(async (req, res) => {
   const { status, dept, empCode, fromDate, toDate, page = 1, limit = 100 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
-  const pool    = await getPool();
-  const request = pool.request()
-    .input("offset", sql.Int, offset)
-    .input("limit",  sql.Int, parseInt(limit));
+  const pool = await getPool();
 
+  // FIX: the count query below needs the same filter bindings as the page
+  // query — reusing one Request across two .query() calls or building a
+  // second Request without re-applying these .input()s both throw "Must
+  // declare the scalar variable" as soon as any filter is active. Bind
+  // filters to both requests from one place instead.
   const conditions = [];
-  if (status)   { request.input("status",   sql.NVarChar(20),  status);                 conditions.push("Status = @status");   }
-  if (dept)     { request.input("dept",     sql.NVarChar(200), `%${dept}%`);            conditions.push("Department LIKE @dept"); }
-  if (empCode)  { request.input("empCode",  sql.NVarChar(50),  empCode.toUpperCase());  conditions.push("EmpCode = @empCode"); }
-  if (fromDate) { request.input("fromDate", sql.Date,          fromDate);               conditions.push("FromDate >= @fromDate"); }
-  if (toDate)   { request.input("toDate",   sql.Date,          toDate);                 conditions.push("ToDate <= @toDate");  }
-
+  if (status)   conditions.push("Status = @status");
+  if (dept)     conditions.push("Department LIKE @dept");
+  if (empCode)  conditions.push("EmpCode = @empCode");
+  if (fromDate) conditions.push("FromDate >= @fromDate");
+  if (toDate)   conditions.push("ToDate <= @toDate");
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const result = await request.query(`
+  const bindFilters = (req) => {
+    if (status)   req.input("status",   sql.NVarChar(20),  status);
+    if (dept)     req.input("dept",     sql.NVarChar(200), `%${dept}%`);
+    if (empCode)  req.input("empCode",  sql.NVarChar(50),  empCode.toUpperCase());
+    if (fromDate) req.input("fromDate", sql.Date,          fromDate);
+    if (toDate)   req.input("toDate",   sql.Date,          toDate);
+    return req;
+  };
+
+  const pageRequest = bindFilters(pool.request()).input("offset", sql.Int, offset).input("limit", sql.Int, parseInt(limit));
+
+  const result = await pageRequest.query(`
     SELECT * FROM LeaveRequests
     ${where}
     ORDER BY AppliedAt DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `);
 
-  const countRes = await pool.request().query(`SELECT COUNT(*) AS total FROM LeaveRequests ${where}`);
+  const countRes = await bindFilters(pool.request()).query(`SELECT COUNT(*) AS total FROM LeaveRequests ${where}`);
 
   res.json({ success: true, data: result.recordset, total: countRes.recordset[0].total });
 });
