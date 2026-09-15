@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import toast from "react-hot-toast";
+import { Search } from "lucide-react";
+import { baseURL } from "../../assets/assets.js";
 import SelectField from "../../components/ui/SelectField.jsx";
 import DateTimePicker from "../../components/ui/DateTimePicker.jsx";
 import Loader from "../../components/ui/Loader.jsx";
 import useGatePasses from "../../hooks/Usegatepasses.js";
 import GatePassHeader from "../../components/employeeManagement/Gatepassheader.jsx"
 import { Spinner, StatusBadge, EmptyState } from "../../components/employeeManagement/Gatepassui.jsx"
-import { TYPE_OPTIONS, COMING_BACK_OPTIONS, EMPTY_FORM } from "./constants.js";
+import { TYPE_OPTIONS, COMING_BACK_OPTIONS, EMPTY_FORM } from "./Constants.js";
 
 const REQUIRED_FIELDS = [
   "empCode",
@@ -17,6 +20,80 @@ const REQUIRED_FIELDS = [
   "reason",
   "outDateTime",
 ];
+
+// Type-ahead search against the employee badge directory (Backend reads
+// pool4/CLMS's Name table) — picking a match auto-fills name + contact so
+// the requester only has to remember the employee code.
+const EmployeeCodeLookup = ({ value, onSelect, onChange }) => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    const query = value.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await axios.get(`${baseURL}gatepass/search-employee`, { params: { q: query } });
+        setSuggestions(res.data?.data || []);
+        setOpen(true);
+      } catch {
+        // Non-fatal — the field stays freely editable either way.
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [value]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <div className="relative">
+        <input
+          className="w-full border border-slate-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={value}
+          onChange={(e) => { onChange(e.target.value.toUpperCase()); setOpen(true); }}
+          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          placeholder="e.g. WRLZ0242"
+          autoComplete="off"
+        />
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300">
+          {searching ? <Spinner cls="w-3.5 h-3.5" /> : <Search className="w-3.5 h-3.5" />}
+        </span>
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute top-full mt-1 left-0 z-50 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+          <div className="py-1 max-h-56 overflow-auto">
+            {suggestions.map((s) => (
+              <button
+                key={s.empCode}
+                type="button"
+                onClick={() => { onSelect(s); setOpen(false); }}
+                className="w-full flex flex-col items-start px-3 py-2 text-left text-xs hover:bg-blue-50 transition-colors"
+              >
+                <span className="font-semibold text-slate-800">{s.empName?.trim()}</span>
+                <span className="text-slate-400">{s.empCode} · {s.contactNo || "no phone"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const GatePassRequest = () => {
   const { passes, initialLoading, refreshing, fetchPasses, createPass } =
@@ -92,10 +169,17 @@ const GatePassRequest = () => {
               <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
                 Employee Code
               </label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <EmployeeCodeLookup
                 value={form.empCode}
-                onChange={handleChange("empCode")}
+                onChange={(v) => setForm((f) => ({ ...f, empCode: v }))}
+                onSelect={(emp) =>
+                  setForm((f) => ({
+                    ...f,
+                    empCode: emp.empCode,
+                    empName: emp.empName?.trim() || f.empName,
+                    contactNo: emp.contactNo || f.contactNo,
+                  }))
+                }
               />
             </div>
             <div className="min-w-[160px] flex-1">

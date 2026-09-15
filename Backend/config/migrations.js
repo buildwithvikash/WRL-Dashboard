@@ -960,5 +960,45 @@ export const runMigrations = async (pool3) => {
     END
   `);
 
+  // ── GatePasses ────────────────────────────────────────────────────────────
+  // Employee Management → Gate Pass: out-pass requests that walk through
+  // Dept Head → HR → Security (out) → Security (in). Each stage's actor is
+  // captured as free text (the UI takes a plain "your name" / "supervisor
+  // name" input, not the logged-in user) alongside when they acted, so the
+  // full chain-of-custody survives even though the current UI never
+  // redisplays it.
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='GatePasses')
+    BEGIN
+      CREATE TABLE GatePasses (
+        Id                 INT IDENTITY(1,1) PRIMARY KEY,
+        EmpCode            NVARCHAR(50)   NOT NULL,
+        EmpName            NVARCHAR(200)  NOT NULL,
+        DeptName           NVARCHAR(200)  NOT NULL,
+        ContactNo          NVARCHAR(50)   NULL,
+        PlaceOfVisit       NVARCHAR(200)  NULL,
+        Reason             NVARCHAR(MAX)  NULL,
+        Type               NVARCHAR(20)   NOT NULL DEFAULT 'Official',   -- Official | Personal
+        ComingBack         NVARCHAR(5)    NOT NULL DEFAULT 'Yes',        -- Yes | No
+        OutDateTime        DATETIME       NOT NULL,
+        ExpectedInDateTime DATETIME       NULL,
+        Status             NVARCHAR(30)   NOT NULL DEFAULT 'Pending Dept Head',
+        -- Pending Dept Head | Pending HR | Approved | Out | Completed | Rejected
+        DeptHeadName       NVARCHAR(200)  NULL,
+        DeptHeadAt         DATETIME       NULL,
+        HRName             NVARCHAR(200)  NULL,
+        HRAt               DATETIME       NULL,
+        SecurityOutName    NVARCHAR(200)  NULL,
+        GateOutAt          DATETIME       NULL,
+        SecurityInName     NVARCHAR(200)  NULL,
+        GateInAt           DATETIME       NULL,
+        CreatedAt          DATETIME       NOT NULL DEFAULT GETDATE(),
+        UpdatedAt          DATETIME       NOT NULL DEFAULT GETDATE()
+      );
+      CREATE INDEX IX_GatePasses_Status ON GatePasses (Status);
+      PRINT 'Migration: Created GatePasses table';
+    END
+  `);
+
   console.log("Migrations completed.");
 };
