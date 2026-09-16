@@ -88,7 +88,7 @@ const TemplateChangeLog = () => {
   }, [history, filter]);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans">
       {/* ── Sticky header — mirrors Compare Versions for a consistent feel ── */}
       <div className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
         <div className="px-6 py-3 flex flex-wrap items-center justify-between gap-3">

@@ -185,7 +185,7 @@ const AuditApproval = () => {
 
   if (!canAccess) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4 px-6">
           <FaExclamationTriangle className="text-5xl text-amber-400 mx-auto" />
           <h2 className="text-xl font-bold text-gray-800">Access Denied</h2>
@@ -200,7 +200,7 @@ const AuditApproval = () => {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="h-full overflow-y-auto bg-gray-50 font-sans">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10 shadow-sm">

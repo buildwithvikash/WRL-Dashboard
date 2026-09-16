@@ -113,7 +113,7 @@ const LeaveApproval = () => {
 
   if (!canApprove) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-center p-10">
+      <div className="h-full bg-slate-50 flex items-center justify-center text-center p-10">
         <div>
           <FaTimesCircle className="text-5xl text-red-300 mx-auto mb-4" />
           <h2 className="text-xl font-black text-gray-700">Access Denied</h2>
@@ -124,7 +124,7 @@ const LeaveApproval = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans">
 
       {/* Reject Modal */}
       {rejectModal && (

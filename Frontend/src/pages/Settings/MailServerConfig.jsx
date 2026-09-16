@@ -59,7 +59,7 @@ export default function MailServerConfig() {
 
   if (userRole !== SUPER_ADMIN_ROLE) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+      <div className="h-full bg-slate-50 flex flex-col items-center justify-center">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 flex flex-col items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
             <Lock className="w-8 h-8 text-red-500" />
@@ -108,7 +108,7 @@ export default function MailServerConfig() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans">
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0 gap-4">
         <div>
           <h1 className="text-lg font-bold text-gray-900 leading-none">Mail Server Settings</h1>

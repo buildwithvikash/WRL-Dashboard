@@ -156,7 +156,7 @@ const LeaveApplication = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans">
 
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">

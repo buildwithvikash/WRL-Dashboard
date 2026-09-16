@@ -171,7 +171,7 @@ const TemplateCompare = () => {
 
   if (loadingVersions) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin mx-auto" />
           <p className="text-sm font-semibold text-slate-500">Loading version history…</p>
@@ -199,7 +199,7 @@ const TemplateCompare = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans">
       {/* ── Sticky header ───────────────────────────────────────────────── */}
       <div className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
         <div className="px-6 py-3 flex flex-wrap items-center justify-between gap-3">

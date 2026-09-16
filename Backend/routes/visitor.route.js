@@ -23,6 +23,8 @@ import {
 import {
   fetchVisitors,
   sendVisitorReport,
+  getCompanies,
+  searchByCompany,
 } from "../controllers/visitor/reports.controller.js";
 import { getDashboardStats } from "../controllers/visitor/dashboard.controller.js";
 import {
@@ -59,6 +61,8 @@ router.get("/reprint/:passId", authenticate, getVisitorPassDetails);
 // -----------------> Visitor Reports Routes
 router.get("/repot", authenticate, fetchVisitors);
 router.post("/send-report", authenticate, sendVisitorReport);
+router.get("/companies", authenticate, getCompanies);
+router.get("/search-by-company", authenticate, searchByCompany);
 
 // -----------------> Visitor Dashboard Routes
 router.get("/dashboard-stats", authenticate, getDashboardStats);

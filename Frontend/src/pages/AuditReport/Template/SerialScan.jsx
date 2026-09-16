@@ -234,7 +234,7 @@ const SerialScan = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans flex flex-col">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-3">

@@ -712,7 +712,7 @@ const AuditList = () => {
   // ==================== LOADING STATE ====================
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="h-full bg-slate-100 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
           <div>
@@ -725,7 +725,7 @@ const AuditList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-100 font-sans">
       {/* ==================== STICKY HEADER ==================== */}
       <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 w-full">

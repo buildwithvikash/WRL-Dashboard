@@ -360,7 +360,7 @@ const GeneratePass = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 overflow-x-hidden max-w-full">
+    <div className="h-full overflow-y-auto bg-gray-100 p-4 overflow-x-hidden max-w-full">
       {/* Page Title */}
       <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
         Generate Pass

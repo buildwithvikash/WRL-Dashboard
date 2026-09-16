@@ -492,7 +492,7 @@ const FPA = () => {
 
   // -- Render ----------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-50 font-sans">
       <ImageModal src={previewImage} onClose={() => setPreviewImage(null)} />
 
       {/* -- Header -- */}

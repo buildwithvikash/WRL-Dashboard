@@ -205,7 +205,7 @@ const TemplateApproval = () => {
 
   if (!canApprove) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
           <FaExclamationTriangle className="text-5xl text-amber-400 mx-auto" />
           <h2 className="text-xl font-bold text-gray-800">Access Denied</h2>
@@ -218,7 +218,7 @@ const TemplateApproval = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
+    <div className="h-full bg-gray-50 font-sans flex flex-col">
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-20 shadow-sm">

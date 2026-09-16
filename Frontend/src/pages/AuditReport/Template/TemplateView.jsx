@@ -473,7 +473,7 @@ const TemplateView = () => {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="h-full bg-slate-100 flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
           <p className="text-sm text-gray-500 font-medium">Loading template…</p>
@@ -494,7 +494,7 @@ const TemplateView = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans">
+    <div className="h-full overflow-y-auto bg-slate-100 font-sans">
       {/* ── Reject Modal ─────────────────────────────────────────────────── */}
       {showRejectModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -772,7 +772,7 @@ const TemplateView = () => {
       <div className="px-6 py-5 space-y-5 max-w-7xl min-w-full">
         {/* ── Status banner ──────────────────────────────────────────────── */}
         {template.approvalStatus === "rejected" && template.rejectionReason && (
-          <div className="min-h-screen bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3">
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3">
             <FaTimesCircle
               className="text-red-500 mt-0.5 flex-shrink-0"
               size={14}
@@ -939,7 +939,7 @@ const TemplateView = () => {
             (c) => c.visible !== false,
           );
           return (
-            <div className=" min-h-screen bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               {/* Sticky card header */}
               <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-2 sticky top-1 z-20">
                 <FaLayerGroup size={12} className="text-slate-600" />
