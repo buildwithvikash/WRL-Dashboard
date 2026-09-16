@@ -354,7 +354,7 @@ const GatePassSecurityGate = () => {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <Avatar name={p.empName} size="md" />
+                          <Avatar name={p.empName} empCode={p.empCode} size="md" />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold text-slate-800 truncate">
                               {p.empName} <span className="text-slate-400 font-normal text-xs">· {p.empCode}</span>
@@ -435,7 +435,7 @@ const GatePassSecurityGate = () => {
                         >
                           <td className="px-3 py-2.5 border-b border-slate-100">
                             <div className="flex items-center gap-2.5">
-                              <Avatar name={p.empName} size="sm" />
+                              <Avatar name={p.empName} empCode={p.empCode} size="sm" />
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold text-slate-800 truncate">
                                   {p.empName} <span className="text-slate-400 font-normal">· {p.empCode}</span>
@@ -496,7 +496,7 @@ const GatePassSecurityGate = () => {
               ) : (
                 recentActivity.map(({ pass: p, label, tone, at }) => (
                   <div key={`${p.id}-${label}`} className="flex items-center gap-2.5 py-2.5 border-b border-slate-100 last:border-0">
-                    <Avatar name={p.empName} size="sm" />
+                    <Avatar name={p.empName} empCode={p.empCode} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-slate-700 truncate">{p.empName}</p>
                       <p className="text-[10px] text-slate-400 truncate">{p.empCode} · {p.deptName}</p>
