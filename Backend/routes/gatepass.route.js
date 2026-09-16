@@ -8,6 +8,7 @@ import {
   exportGatePasses,
   searchEmployee,
   getEmployeeDetails,
+  getEmployeePhoto,
   emailAction,
   listDeptConfig,
   createDeptConfig,
@@ -28,6 +29,7 @@ router.get("/email-action/:token/:action", emailAction);
 
 router.get("/search-employee", authenticate, searchEmployee);
 router.get("/employee-details", authenticate, getEmployeeDetails);
+router.get("/employee-photo/:empCode", authenticate, getEmployeePhoto);
 
 // Department approval config — registered before the generic "/:id/:stage"
 // route below so "dept-config" is never captured as an :id.

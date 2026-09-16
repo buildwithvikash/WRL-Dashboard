@@ -145,6 +145,34 @@ export const getEmployeeDetails = tryCatch(async (req, res) => {
   res.json({ success: true, data: result.recordset[0] });
 });
 
+// GET /gatepass/employee-photo/:empCode
+// Streams the employee's photo straight from CLMS's Images table (a JPEG
+// blob, keyed by Name.Code via NameCode) — used as an <img src> wherever the
+// module shows an employee (request form, approval queues, security gate,
+// reports). Plain 404 (no JSON body) when there's no photo on file, so the
+// <img>'s onError fallback can swap in the initials avatar.
+export const getEmployeePhoto = tryCatch(async (req, res) => {
+  const empCode = (req.params.empCode || "").trim();
+  if (!empCode) return res.status(404).end();
+
+  const pool = await getEmployeePool();
+  const result = await pool.request()
+    .input("empCode", sql.NVarChar(50), empCode)
+    .query(`
+      SELECT TOP 1 i.LabourImage
+      FROM Name AS n
+      INNER JOIN Images AS i ON i.NameCode = n.Code
+      WHERE n.IDCardNo = @empCode AND DATALENGTH(i.LabourImage) > 0
+    `);
+
+  const photo = result.recordset[0]?.LabourImage;
+  if (!photo) return res.status(404).end();
+
+  res.set("Content-Type", "image/jpeg");
+  res.set("Cache-Control", "private, max-age=3600");
+  res.send(photo);
+});
+
 // GET /gatepass/list
 export const listGatePasses = tryCatch(async (_req, res) => {
   const pool = await getPool();

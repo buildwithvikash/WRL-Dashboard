@@ -257,7 +257,7 @@ const GatePassReports = () => {
                           <td className="px-3 py-2 border-b border-slate-100 whitespace-nowrap cursor-pointer" onClick={() => setExpandedId(isOpen ? null : p.id)}>
                             <div className="flex items-center gap-2">
                               <ChevronDown className={`w-3.5 h-3.5 text-slate-300 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                              <Avatar name={p.empName} size="sm" />
+                              <Avatar name={p.empName} empCode={p.empCode} size="sm" />
                               <div>
                                 <span className="font-medium text-slate-800 block">{p.empName}</span>
                                 <span className="text-slate-400">{p.empCode}</span>

@@ -50,7 +50,7 @@ const GatePassApprovalQueue = ({
 
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
-                <Avatar name={p.empName} />
+                <Avatar name={p.empName} empCode={p.empCode} />
                 <div>
                   <p className="text-sm font-semibold text-slate-800">
                     {p.empName}{" "}

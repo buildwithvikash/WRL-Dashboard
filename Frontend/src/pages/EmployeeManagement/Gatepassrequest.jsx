@@ -10,7 +10,7 @@ import SelectField from "../../components/ui/SelectField.jsx";
 import DateTimePicker from "../../components/ui/DateTimePicker.jsx";
 import Loader from "../../components/ui/Loader.jsx";
 import useGatePasses from "../../hooks/Usegatepasses.js";
-import { Spinner, StatusBadge, EmptyState, Avatar, ElapsedBadge, StatusPipeline } from "../../components/employeeManagement/Gatepassui.jsx"
+import { Spinner, StatusBadge, EmptyState, Avatar, ElapsedBadge, StatusPipeline, PhotoZoomModal } from "../../components/employeeManagement/Gatepassui.jsx"
 import { TYPE_OPTIONS, COMING_BACK_OPTIONS, EMPTY_FORM } from "./Constants.js";
 
 const REQUIRED_FIELDS = [
@@ -162,7 +162,7 @@ const EmployeeCodeLookup = ({ value, onSelect, onChange }) => {
                 onClick={() => handlePick(s)}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs hover:bg-blue-50 transition-colors disabled:opacity-50"
               >
-                <Avatar name={s.empName} size="sm" />
+                <Avatar name={s.empName} empCode={s.empCode} size="sm" />
                 <span className="flex-1 flex flex-col items-start min-w-0">
                   <span className="font-semibold text-slate-800 truncate w-full">{s.empName?.trim()}</span>
                   <span className="text-slate-400">{s.empCode} · {s.contactNo || "no phone"}</span>
@@ -207,6 +207,11 @@ const PassPreviewCard = ({ form }) => {
   const hasEmployee = form.empCode || form.empName;
   const outTime = timeOf(form.outDateTime);
   const inTime = timeOf(form.expectedInDateTime);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const photoSrc = form.empCode ? `${baseURL}gatepass/employee-photo/${form.empCode}` : null;
+
+  useEffect(() => { setPhotoFailed(false); }, [form.empCode]);
 
   return (
     <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -221,9 +226,23 @@ const PassPreviewCard = ({ form }) => {
           <p className="text-xs text-slate-400 text-center py-4">Fill in the form to preview the pass.</p>
         ) : (
           <div className="space-y-3">
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Employee Name</p>
-              <p className="text-sm font-bold text-slate-800">{form.empName || "—"}{form.empCode ? `-${form.empCode}` : ""}</p>
+            <div className="flex items-start gap-3">
+              {photoSrc && !photoFailed && (
+                <img
+                  src={photoSrc}
+                  alt=""
+                  onError={() => setPhotoFailed(true)}
+                  onClick={() => setZoomed(true)}
+                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-zoom-in hover:opacity-90 transition-opacity"
+                />
+              )}
+              {zoomed && photoSrc && (
+                <PhotoZoomModal src={photoSrc} alt={form.empName || form.empCode} onClose={() => setZoomed(false)} />
+              )}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Employee Name</p>
+                <p className="text-sm font-bold text-slate-800">{form.empName || "—"}{form.empCode ? `-${form.empCode}` : ""}</p>
+              </div>
             </div>
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Reason</p>
@@ -406,7 +425,7 @@ const GatePassRequest = () => {
                   className="border border-slate-100 rounded-lg px-4 py-3 flex items-center justify-between gap-4 flex-wrap hover:bg-slate-50/70 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-[200px]">
-                    <Avatar name={p.empName} size="sm" />
+                    <Avatar name={p.empName} empCode={p.empCode} size="sm" />
                     <div>
                       <p className="text-sm font-semibold text-slate-800">
                         {p.empName}{" "}

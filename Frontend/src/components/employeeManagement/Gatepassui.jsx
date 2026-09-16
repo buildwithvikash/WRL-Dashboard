@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Inbox, Check, X, ChevronDown } from "lucide-react";
+import { baseURL } from "../../assets/assets.js";
 import { STATUS_STYLES, STAGE_SEQUENCE, getPipelineInfo } from "../../pages/EmployeeManagement/Constants.js";
 
 export const Spinner = ({ cls = "w-4 h-4" }) => (
@@ -71,8 +73,66 @@ const initialsOf = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-export const Avatar = ({ name, size = "md" }) => {
+// Full-screen lightbox for a zoomed photo — rendered via portal straight
+// into document.body so it's never clipped by an ancestor's overflow:hidden
+// (list containers, table scroll areas) and always sits above everything.
+export const PhotoZoomModal = ({ src, alt, onClose }) => {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6 cursor-zoom-out"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      <img
+        src={src}
+        alt={alt}
+        onClick={(e) => e.stopPropagation()}
+        className="max-w-[90vw] max-h-[85vh] rounded-xl shadow-2xl object-contain bg-white cursor-default"
+      />
+    </div>,
+    document.body,
+  );
+};
+
+// When `empCode` is given, tries the employee's real photo (CLMS Images
+// table, streamed via /gatepass/employee-photo/:empCode) first, falling
+// back to the initials avatar below if there isn't one on file or it fails
+// to load — so a missing photo never shows a broken-image icon. A loaded
+// photo is click-to-zoom via PhotoZoomModal above.
+export const Avatar = ({ name, empCode, size = "md" }) => {
   const sizeCls = size === "sm" ? "w-8 h-8 text-[10px]" : size === "lg" ? "w-12 h-12 text-sm" : "w-10 h-10 text-xs";
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+
+  useEffect(() => { setPhotoFailed(false); }, [empCode]);
+
+  if (empCode && !photoFailed) {
+    const src = `${baseURL}gatepass/employee-photo/${empCode}`;
+    return (
+      <>
+        <img
+          src={src}
+          alt={name || empCode}
+          onError={() => setPhotoFailed(true)}
+          onClick={(e) => { e.stopPropagation(); setZoomed(true); }}
+          className={`shrink-0 rounded-full object-cover bg-slate-100 cursor-zoom-in hover:opacity-90 transition-opacity ${sizeCls}`}
+        />
+        {zoomed && <PhotoZoomModal src={src} alt={name || empCode} onClose={() => setZoomed(false)} />}
+      </>
+    );
+  }
+
   const palette = AVATAR_PALETTE[hashString(name || "?") % AVATAR_PALETTE.length];
   return (
     <div className={`shrink-0 rounded-full flex items-center justify-center font-bold ${sizeCls} ${palette}`}>
