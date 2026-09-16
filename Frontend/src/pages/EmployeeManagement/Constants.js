@@ -39,3 +39,40 @@ export const EMPTY_FORM = {
   outDateTime: "",
   expectedInDateTime: "",
 };
+
+// ── Pipeline (Requested → Dept Head → HR → Gate Out → Gate In) ────────────
+// The single source of truth for how a pass's lifecycle maps to a visual
+// step sequence — used by the StatusPipeline component wherever a pass is
+// shown (request list, approval queues, security gate, reports).
+export const STAGE_SEQUENCE = [
+  { key: "requested", label: "Requested" },
+  { key: "depthead", label: "Dept Head" },
+  { key: "hr", label: "HR" },
+  { key: "gateOut", label: "Gate Out" },
+  { key: "gateIn", label: "Gate In" },
+];
+
+const STATUS_TO_ACTIVE_INDEX = {
+  "Pending Dept Head": 1,
+  "Pending HR": 2,
+  Approved: 3,
+  Out: 4,
+};
+
+// Returns which steps are done, which one is currently active (awaiting
+// action), and — for a rejected pass — which step it was rejected at, so
+// the pipeline can render a clean "progress stopped here" state instead of
+// just a generic red badge.
+export const getPipelineInfo = (pass) => {
+  if (pass.status === "Rejected") {
+    // HR only gets a chance to act after Dept Head approved, so hrAt being
+    // set means the rejection happened at the HR step, not Dept Head's.
+    const rejectedIndex = pass.hrAt ? 2 : 1;
+    return { completedUpTo: rejectedIndex - 1, activeIndex: null, rejectedIndex };
+  }
+  if (pass.status === "Completed") {
+    return { completedUpTo: 4, activeIndex: null, rejectedIndex: null };
+  }
+  const activeIndex = STATUS_TO_ACTIVE_INDEX[pass.status] ?? 0;
+  return { completedUpTo: activeIndex - 1, activeIndex, rejectedIndex: null };
+};
