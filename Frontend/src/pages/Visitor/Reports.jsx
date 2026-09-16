@@ -1,11 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { FaFileAlt, FaSearch, FaUsers, FaPaperPlane, FaEye } from "react-icons/fa";
 import DateTimePicker from "../../components/ui/DateTimePicker";
+import SelectField from "../../components/ui/SelectField";
 import { baseURL } from "../../assets/assets";
 import Loader from "../../components/ui/Loader";
 import { formatISODateString } from "../../utils/dateUtils";
-import { FaFileAlt, FaSearch, FaUsers, FaPaperPlane } from "react-icons/fa";
+import ProfilePanel from "../../components/visitor/ProfilePanel.jsx";
+
+const QUICK_FILTERS = [
+  { key: "yday", label: "Yesterday" },
+  { key: "tday", label: "Today" },
+  { key: "mtd", label: "Month To Date" },
+];
 
 const Reports = () => {
   const [loading, setLoading] = useState(false);
@@ -16,6 +24,14 @@ const Reports = () => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [searchParams, setSearchParams] = useState({ term: "", field: "all" });
+  const [companyFilter, setCompanyFilter] = useState("all");
+  const [companyOptions, setCompanyOptions] = useState([]);
+  const [companyResults, setCompanyResults] = useState([]);
+  const [companyLoading, setCompanyLoading] = useState(false);
+
+  const [selectedId, setSelectedId] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const formatDate = (date) => {
     const pad = (n) => (n < 10 ? "0" + n : n);
@@ -46,40 +62,41 @@ const Reports = () => {
     today8AM.setHours(8, 0, 0, 0);
     const yesterday8AM = new Date(today8AM);
     yesterday8AM.setDate(today8AM.getDate() - 1);
-    fetchVisitorData(
-      formatDate(yesterday8AM),
-      formatDate(today8AM),
-      setYdayLoading,
-    );
+    setCompanyFilter("all");
+    setStartTime(formatDate(yesterday8AM));
+    setEndTime(formatDate(today8AM));
+    fetchVisitorData(formatDate(yesterday8AM), formatDate(today8AM), setYdayLoading);
   };
 
   const fetchTdayVisitorData = () => {
     const now = new Date();
     const today8AM = new Date(now);
     today8AM.setHours(8, 0, 0, 0);
+    setCompanyFilter("all");
+    setStartTime(formatDate(today8AM));
+    setEndTime(formatDate(now));
     fetchVisitorData(formatDate(today8AM), formatDate(now), setTodayLoading);
   };
 
   const fetchMTDVisitorData = () => {
     const now = new Date();
-    const startOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1,
-      8,
-      0,
-      0,
-    );
-    fetchVisitorData(
-      formatDate(startOfMonth),
-      formatDate(now),
-      setMonthLoading,
-    );
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 8, 0, 0);
+    setCompanyFilter("all");
+    setStartTime(formatDate(startOfMonth));
+    setEndTime(formatDate(now));
+    fetchVisitorData(formatDate(startOfMonth), formatDate(now), setMonthLoading);
   };
 
+  const QUICK_ACTIONS = {
+    yday: fetchYdayVisitorData,
+    tday: fetchTdayVisitorData,
+    mtd: fetchMTDVisitorData,
+  };
+  const quickLoading = { yday: ydayLoading, tday: todayLoading, mtd: monthLoading };
+
   const fetchVisitors = async () => {
-    if (!startTime || !endTime)
-      return toast.error("Please select the Time Range.");
+    if (!startTime || !endTime) return toast.error("Please select the Time Range.");
+    setCompanyFilter("all");
     await fetchVisitorData(startTime, endTime, setLoading);
   };
 
@@ -90,7 +107,53 @@ const Reports = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredReports = visitors.filter((item) => {
+  // Full all-time company directory (not scoped to the loaded date range) so
+  // the filter can find a company even if they haven't visited recently.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${baseURL}visitor/companies`);
+        if (res.data?.success) setCompanyOptions(res.data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch companies:", err);
+      }
+    })();
+  }, []);
+
+  // Picking a company searches ALL of its visits, regardless of date — a
+  // company's visits can easily fall outside whatever range happens to be
+  // loaded, so filtering the already-narrow date-range list client-side
+  // silently showed nothing. This replaces the table's data source entirely
+  // while a company is selected.
+  useEffect(() => {
+    if (companyFilter === "all") {
+      setCompanyResults([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setCompanyLoading(true);
+      try {
+        const res = await axios.get(`${baseURL}visitor/search-by-company`, {
+          params: { company: companyFilter },
+        });
+        if (!cancelled && res.data?.success) setCompanyResults(res.data.data || []);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to search company visits:", err);
+          toast.error("Failed to search company visits.");
+        }
+      } finally {
+        if (!cancelled) setCompanyLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyFilter]);
+
+  const isCompanySearch = companyFilter !== "all";
+  const baseRows = isCompanySearch ? companyResults : visitors;
+
+  const filteredReports = baseRows.filter((item) => {
     const { term, field } = searchParams;
     if (!term) return true;
     const lowerTerm = term.toLowerCase();
@@ -118,6 +181,25 @@ const Reports = () => {
     }
   });
 
+  // One row per unique visitor (their most recent visit in the current
+  // filtered range), with a count of how many visits they made within it —
+  // the flat report is per-visit, but the redesigned table is per-person.
+  const groupedVisitors = useMemo(() => {
+    const latestByKey = new Map();
+    const countByKey = new Map();
+    for (const r of filteredReports) {
+      const key = r.id ?? r.contact_no ?? r.visitor_name;
+      countByKey.set(key, (countByKey.get(key) || 0) + 1);
+      const existing = latestByKey.get(key);
+      if (!existing || new Date(r.check_in_time) > new Date(existing.check_in_time)) {
+        latestByKey.set(key, r);
+      }
+    }
+    return [...latestByKey.entries()]
+      .map(([key, row]) => ({ ...row, visitsInRange: countByKey.get(key) }))
+      .sort((a, b) => new Date(b.check_in_time) - new Date(a.check_in_time));
+  }, [filteredReports]);
+
   const handleSendReport = async () => {
     if (!filteredReports.length) return toast.error("No report data to send.");
     try {
@@ -133,267 +215,225 @@ const Reports = () => {
     }
   };
 
+  const viewProfile = async (row) => {
+    setSelectedId(row.id);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await axios.get(`${baseURL}visitor/details/${row.id}`);
+      if (res.data?.success) {
+        const logs = res.data.visit_logs || [];
+        setDetail({ visitor: res.data.visitor, logs, host: logs[0] || null });
+      } else {
+        toast.error(res.data?.message || "Failed to fetch visitor details");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch visitor details");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeProfile = () => {
+    setSelectedId(null);
+    setDetail(null);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4 max-w-full">
+    <div className="h-full overflow-y-auto bg-gray-100 p-4 max-w-full">
       {/* Page Title */}
       <h1 className="text-3xl font-bold text-center mb-4 text-gray-800">
         Visitors Reports
       </h1>
 
-      {/* ==================== Filters Section ==================== */}
-      <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-        <h3 className="text-xl font-semibold mb-4 text-gray-800">
-          Filters & Quick Actions
-        </h3>
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 items-start">
+        {/* ==================== Left column ==================== */}
+        <div className="flex flex-col gap-4 min-w-0">
+          {/* ==================== Filters Section ==================== */}
+          <div className="bg-white shadow-md rounded-xl p-6 border border-gray-100">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800">
+              Filters &amp; Quick Actions
+            </h3>
 
-        <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-end">
-          {/* Date Range & Query */}
-          <div className="flex flex-wrap gap-4 items-end">
-            <DateTimePicker
-              label="Start Time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-            <DateTimePicker
-              label="End Time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-            <button
-              onClick={fetchVisitors}
-              className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer flex items-center gap-2"
-            >
-              {loading ? (
-                <Loader />
-              ) : (
-                <>
-                  <FaSearch className="text-xs" /> Query
-                </>
-              )}
-            </button>
+            <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-end flex-wrap">
+              {/* Date Range & Query */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Select Date Range</p>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <DateTimePicker value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <DateTimePicker value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  <button
+                    onClick={fetchVisitors}
+                    className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer flex items-center gap-2"
+                  >
+                    {loading ? <Loader /> : <><FaSearch className="text-xs" /> Apply Filters</>}
+                  </button>
+                </div>
+              </div>
+
+              {/* Company */}
+              <div className="w-56">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label className="block text-sm font-semibold text-gray-700">Company</label>
+                  {companyLoading && <div className="animate-spin h-3 w-3 border-b-2 border-blue-500 rounded-full" />}
+                </div>
+                <SelectField
+                  placeholder="Search companies…"
+                  options={[{ value: "all", label: "All Companies" }, ...companyOptions.map((c) => ({ value: c, label: c }))]}
+                  value={companyFilter}
+                  onChange={(e) => setCompanyFilter(e.target.value)}
+                />
+                {isCompanySearch && (
+                  <p className="text-[10px] text-gray-400 mt-1">Showing all-time visits for this company — date range is ignored.</p>
+                )}
+              </div>
+
+              {/* Search */}
+              <div className="flex flex-wrap gap-2 items-end">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search visitor..."
+                    className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    value={searchParams.term}
+                    onChange={(e) => setSearchParams((prev) => ({ ...prev, term: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Field</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    value={searchParams.field}
+                    onChange={(e) => setSearchParams((prev) => ({ ...prev, field: e.target.value }))}
+                  >
+                    <option value="all">All Fields</option>
+                    <option value="name">Name</option>
+                    <option value="contactno">Contact No.</option>
+                    <option value="email">Email</option>
+                    <option value="company">Company</option>
+                    <option value="purpose">Purpose</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Quick Filters */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Quick Filters</p>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_FILTERS.map((q) => (
+                    <button
+                      key={q.key}
+                      onClick={QUICK_ACTIONS[q.key]}
+                      className="px-3 py-2 bg-white border border-gray-300 text-gray-600 text-xs font-semibold rounded-lg hover:border-blue-400 hover:text-blue-600 transition cursor-pointer"
+                    >
+                      {quickLoading[q.key] ? <Loader /> : q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Search */}
-          <div className="flex flex-wrap gap-2 items-end">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Search
-              </label>
-              <input
-                type="text"
-                placeholder="Search visitor..."
-                className="w-full border border-gray-300 rounded-lg p-2 text-sm 
-                  bg-white text-gray-800
-                  placeholder-gray-400
-                  focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={searchParams.term}
-                onChange={(e) =>
-                  setSearchParams((prev) => ({
-                    ...prev,
-                    term: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Field
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg p-2 text-sm 
-                  bg-white text-gray-800
-                  focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={searchParams.field}
-                onChange={(e) =>
-                  setSearchParams((prev) => ({
-                    ...prev,
-                    field: e.target.value,
-                  }))
-                }
+          {/* ==================== Visitors Table ==================== */}
+          <div className="bg-white shadow-md rounded-xl p-6 border border-gray-100">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-blue-500">
+                    <FaUsers className="text-white text-lg" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-sm">Total Unique Visitors</p>
+                    <h2 className="text-2xl font-bold text-gray-800">{groupedVisitors.length}</h2>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-sm">Total Visits</p>
+                  <h2 className="text-2xl font-bold text-gray-800">{filteredReports.length}</h2>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSendReport}
+                className="px-4 py-2 bg-purple-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-purple-600 transition cursor-pointer flex items-center gap-2"
               >
-                <option value="all">All Fields</option>
-                <option value="name">Name</option>
-                <option value="contactno">Contact No.</option>
-                <option value="email">Email</option>
-                <option value="company">Company</option>
-                <option value="purpose">Purpose</option>
-              </select>
+                <FaPaperPlane className="text-xs" /> Send Report
+              </button>
             </div>
-          </div>
 
-          {/* Quick Action Buttons */}
-          <div className="flex flex-wrap gap-2 items-end">
-            <button
-              onClick={fetchYdayVisitorData}
-              className="px-4 py-2 bg-yellow-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition cursor-pointer"
-            >
-              {ydayLoading ? <Loader /> : "YDAY"}
-            </button>
-            <button
-              onClick={fetchTdayVisitorData}
-              className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer"
-            >
-              {todayLoading ? <Loader /> : "TDAY"}
-            </button>
-            <button
-              onClick={fetchMTDVisitorData}
-              className="px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-green-600 transition cursor-pointer"
-            >
-              {monthLoading ? <Loader /> : "MTD"}
-            </button>
-          </div>
-        </div>
-      </div>
+            <p className="text-xs text-gray-400 mb-2">
+              Visitors Report Table · one row per visitor, most recent visit {isCompanySearch ? "for this company" : "in range"}
+            </p>
 
-      {/* ==================== Visitors Table ==================== */}
-      <div className="bg-white shadow-md rounded-lg p-6">
-        {/* Table Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-full bg-blue-500">
-              <FaUsers className="text-white text-lg" />
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm">Total Results</p>
-              <h2 className="text-2xl font-bold text-gray-800">
-                {filteredReports.length}
-              </h2>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSendReport}
-            className="px-4 py-2 bg-purple-500 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-purple-600 transition cursor-pointer flex items-center gap-2"
-          >
-            <FaPaperPlane className="text-xs" /> Send Report
-          </button>
-        </div>
-
-        {/* Full-Width Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed border-collapse text-[11px]">
-            <thead className="bg-gray-100">
-              <tr>
-                {[
-                  { label: "Sr.", width: "w-[3%]" },
-                  { label: "Type", width: "w-[5%]" },
-                  { label: "Name", width: "w-[7%]" },
-                  { label: "Contact", width: "w-[6%]" },
-                  { label: "Email", width: "w-[7%]" },
-                  { label: "Company", width: "w-[5%]" },
-                  { label: "Address", width: "w-[6%]" },
-                  { label: "State", width: "w-[5%]" },
-                  { label: "City", width: "w-[4%]" },
-                  { label: "ID Type", width: "w-[5%]" },
-                  { label: "ID No", width: "w-[5%]" },
-                  { label: "Vehicle", width: "w-[5%]" },
-                  { label: "Employee", width: "w-[6%]" },
-                  { label: "Dept.", width: "w-[5%]" },
-                  { label: "Check In", width: "w-[6%]" },
-                  { label: "Check Out", width: "w-[6%]" },
-                  { label: "Duration", width: "w-[4%]" },
-                  { label: "Visits", width: "w-[3%]" },
-                  { label: "Purpose", width: "w-[5%]" },
-                  { label: "Token", width: "w-[3%]" },
-                ].map((col, idx) => (
-                  <th
-                    key={idx}
-                    className={`${col.width} p-2 border-b border-gray-200 text-center font-semibold text-gray-600 wrap-break-word`}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredReports.length > 0 ? (
-                filteredReports.map((v, i) => (
-                  <tr
-                    key={i}
-                    className="hover:bg-gray-50 transition border-b border-gray-100"
-                  >
-                    <td className="p-2 text-center text-gray-700">{i + 1}</td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.visit_type || "—"}
-                    </td>
-                    <td className="p-2 text-center font-medium text-gray-800 wrap-break-word">
-                      {v.visitor_name || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.contact_no || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.email || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.company || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.address || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.state || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.city || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.identity_type || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.identity_no || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.vehicle_details || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.employee_name || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.department_name || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {formatISODateString(v.check_in_time) || "—"}
-                    </td>
-                    <td className="p-2 text-center wrap-break-word">
-                      {v.check_out_time ? (
-                        <span className="text-gray-700">
-                          {formatISODateString(v.check_out_time)}
-                        </span>
-                      ) : (
-                        <span className="text-green-600 font-bold">
-                          Currently In
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.visit_duration || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700">
-                      {v.no_of_visit || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.purpose_of_visit || "—"}
-                    </td>
-                    <td className="p-2 text-center text-gray-700 wrap-break-word">
-                      {v.token || "—"}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-gray-100">
+                  <tr>
+                    {["Sr. No", "Type", "Name", "Contact", "Company", "Check In", "Check Out", "Duration", "Visited Employee", "Dept.", "Token", "Actions"].map((h) => (
+                      <th key={h} className="p-2.5 border-b border-gray-200 text-left font-semibold text-gray-600 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={20} className="text-center py-12">
-                    <FaFileAlt className="text-5xl text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm">No visitors found.</p>
-                    <p className="text-gray-400 text-xs mt-1">
-                      Try adjusting your filters or date range
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {groupedVisitors.length > 0 ? (
+                    groupedVisitors.map((v, i) => {
+                      const isSelected = selectedId === v.id;
+                      return (
+                        <tr
+                          key={v.id ?? i}
+                          className={`border-b border-gray-100 transition-colors cursor-pointer ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                          onClick={() => viewProfile(v)}
+                        >
+                          <td className="p-2.5 text-gray-700">{i + 1}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.visit_type || "—"}</td>
+                          <td className="p-2.5 font-medium text-gray-800 whitespace-nowrap">{v.visitor_name || "—"}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.contact_no || "—"}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.company || "—"}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap font-mono text-[11px]">{formatISODateString(v.check_in_time) || "—"}</td>
+                          <td className="p-2.5 whitespace-nowrap font-mono text-[11px]">
+                            {v.check_out_time ? (
+                              <span className="text-gray-700">{formatISODateString(v.check_out_time)}</span>
+                            ) : (
+                              <span className="text-emerald-600 font-bold">Currently In</span>
+                            )}
+                          </td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.visit_duration || "—"}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.employee_name || "—"}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.department_name || "—"}</td>
+                          <td className="p-2.5 text-gray-700 whitespace-nowrap font-mono text-[11px]">{v.token || "—"}</td>
+                          <td className="p-2.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => viewProfile(v)}
+                              className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer"
+                            >
+                              <FaEye className="text-[10px]" /> View Profile
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={12} className="text-center py-12">
+                        <FaFileAlt className="text-5xl text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500 text-sm">No visitors found.</p>
+                        <p className="text-gray-400 text-xs mt-1">Try adjusting your filters or date range</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* ==================== Right column ==================== */}
+        <div className="xl:sticky xl:top-4 h-[calc(100vh-6rem)]">
+          <ProfilePanel visitorId={selectedId} detail={detail} loading={detailLoading} onClose={closeProfile} />
         </div>
       </div>
     </div>

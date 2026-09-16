@@ -1760,7 +1760,7 @@ const AuditEntry = () => {
   // ==================== LOADING STATE ====================
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
           <div>
@@ -1776,7 +1776,7 @@ const AuditEntry = () => {
 
   if (!template && !id) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center bg-white rounded-2xl shadow-lg p-10 max-w-sm mx-4">
           <HiClipboardDocumentCheck className="text-5xl text-indigo-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-700 mb-2">
@@ -1797,7 +1797,7 @@ const AuditEntry = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="h-full overflow-y-auto bg-gray-50 font-sans">
       {/* ==================== Image Preview Modal ==================== */}
       {imagePreview && (
         <div

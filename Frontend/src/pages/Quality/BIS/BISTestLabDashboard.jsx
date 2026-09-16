@@ -223,7 +223,7 @@ const BISTestLabDashboard = () => {
   const currentDateTime = new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "medium" });
 
   return (
-    <div className="p-4 md:p-6 space-y-5 bg-slate-50 min-h-screen">
+    <div className="p-4 md:p-6 space-y-5 bg-slate-50 h-full overflow-y-auto">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

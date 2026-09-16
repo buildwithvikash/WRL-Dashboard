@@ -345,7 +345,7 @@ export default function Calibration() {
   };
 
   return (
-    <div className="p-8 bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen">
+    <div className="p-8 bg-gradient-to-br from-gray-100 to-gray-200 h-full overflow-y-auto">
       {/* HEADER */}
       <div className="flex justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-700">

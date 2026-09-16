@@ -10,7 +10,7 @@ import { AppError } from "../../utils/AppError.js";
 export const getAllVisitors = tryCatch(async (req, res, next) => {
   const limit = Number(req.query.limit) || 100;
   const offset = Number(req.query.offset) || 0;
-  const { search, from, to } = req.query;
+  const { search, from, to, status } = req.query;
 
   if (limit <= 0 || offset < 0) {
     throw new AppError("Invalid pagination parameters", 400);
@@ -32,6 +32,8 @@ export const getAllVisitors = tryCatch(async (req, res, next) => {
   if (search) conditions.push("(v.name LIKE @search OR v.company LIKE @search)");
   if (from) conditions.push("vl.check_in_time >= @fromDate");
   if (to) conditions.push("vl.check_in_time <= @toDate");
+  if (status === "onsite") conditions.push("vl.check_out_time IS NULL");
+  else if (status === "checkedout") conditions.push("vl.check_out_time IS NOT NULL");
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   // Shared base — one row per visitor, keyed to their most recent visit,

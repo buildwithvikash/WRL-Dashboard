@@ -1,7 +1,7 @@
 import sql from "mssql";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { dbConfig1 } from "../config/db.config.js";
+import { dbConfig1, dbConfig4 } from "../config/db.config.js";
 import { tryCatch } from "../utils/tryCatch.js";
 import { AppError } from "../utils/AppError.js";
 
@@ -337,6 +337,41 @@ export const changePassword = tryCatch(async (req, res) => {
       success: true,
       message: "Password changed successfully",
     });
+  } finally {
+    await pool.close();
+  }
+});
+
+// ================= MY PHOTO =================
+// Streams the logged-in user's photo straight from CLMS's Images table (a
+// JPEG blob, keyed by Name.Code via NameCode, matched here through the
+// caller's own login id — UserID/empcod is the same value as CLMS's
+// Name.IDCardNo for real employee accounts). Always scoped to req.user.id,
+// never a client-supplied code, since this is "my" profile photo, not a
+// lookup of an arbitrary employee. Plain 404 (no JSON body) when there's no
+// photo on file — e.g. the "root" system account has no CLMS record — so
+// the frontend's <img> onError fallback can swap in an initials avatar.
+export const getMyPhoto = tryCatch(async (req, res) => {
+  const empcod = req.user.id;
+  if (!empcod) return res.status(404).end();
+
+  const pool = await new sql.ConnectionPool(dbConfig4).connect();
+  try {
+    const result = await pool
+      .request()
+      .input("empcod", sql.NVarChar(50), empcod).query(`
+        SELECT TOP 1 i.LabourImage
+        FROM Name AS n
+        INNER JOIN Images AS i ON i.NameCode = n.Code
+        WHERE n.IDCardNo = @empcod AND DATALENGTH(i.LabourImage) > 0
+      `);
+
+    const photo = result.recordset[0]?.LabourImage;
+    if (!photo) return res.status(404).end();
+
+    res.set("Content-Type", "image/jpeg");
+    res.set("Cache-Control", "private, max-age=3600");
+    res.send(photo);
   } finally {
     await pool.close();
   }
