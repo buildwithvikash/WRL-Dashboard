@@ -1,40 +1,40 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import { ShieldCheck } from "lucide-react";
 import Loader from "../../components/ui/Loader.jsx";
 import useGatePasses from "../../hooks/Usegatepasses.js";
 import GatePassHeader from "../../components/employeeManagement/Gatepassheader.jsx"
 import GatePassApprovalQueue from "../../components/employeeManagement/Gatepassapprovalqueue.jsx"
 
+const formatWait = (mins) => {
+  if (mins < 60) return `${Math.floor(mins)}m`;
+  return `${Math.floor(mins / 60)}h ${Math.floor(mins % 60)}m`;
+};
+
 const GatePassHRApproval = () => {
   const { passes, initialLoading, refreshing, actionId, fetchPasses, decide } =
     useGatePasses();
-  const [nameDrafts, setNameDrafts] = useState({});
+  const { user } = useSelector((store) => store.auth);
+  const approverName = user?.name || "";
 
   const queue = useMemo(
     () => passes.filter((p) => p.status === "Pending HR"),
     [passes],
   );
 
-  const badges = useMemo(
-    () => ({
-      "/gatepass/depthead": passes.filter(
-        (p) => p.status === "Pending Dept Head",
-      ).length,
-      "/gatepass/hr-approval": queue.length,
-      "/gatepass/security": passes.filter(
-        (p) => p.status === "Approved" || p.status === "Out",
-      ).length,
-    }),
-    [passes, queue],
-  );
+  const oldestWait = useMemo(() => {
+    if (queue.length === 0) return "—";
+    const oldest = [...queue].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0];
+    return formatWait((Date.now() - new Date(oldest.createdAt).getTime()) / 60000);
+  }, [queue]);
 
   const handleDecision = async (id, stage, decision) => {
-    const name = (nameDrafts[id] || "").trim();
-    if (!name) {
-      toast.error("Please enter your name first.");
+    if (!approverName) {
+      toast.error("Could not determine your logged-in name.");
       return;
     }
-    await decide(id, stage, decision, name);
+    await decide(id, stage, decision, approverName);
   };
 
   if (initialLoading) return <Loader />;
@@ -42,9 +42,13 @@ const GatePassHRApproval = () => {
   return (
     <div className="h-full flex flex-col bg-slate-100 overflow-hidden">
       <GatePassHeader
+        icon={ShieldCheck}
         title="HR Approval"
         subtitle="Requests cleared by the department head, waiting on HR"
-        stats={[{ label: "Pending", value: queue.length, tone: "amber" }]}
+        stats={[
+          { label: "Pending", value: queue.length, tone: "amber" },
+          { label: "Oldest Wait", value: oldestWait, tone: "blue" },
+        ]}
         refreshing={refreshing}
         onRefresh={() => fetchPasses()}
       />
@@ -54,8 +58,7 @@ const GatePassHRApproval = () => {
           <GatePassApprovalQueue
             queue={queue}
             stage="hr"
-            nameDrafts={nameDrafts}
-            setNameDrafts={setNameDrafts}
+            approverName={approverName}
             actionId={actionId}
             onDecision={handleDecision}
           />

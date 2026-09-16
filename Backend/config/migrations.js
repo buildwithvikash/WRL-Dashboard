@@ -1000,5 +1000,74 @@ export const runMigrations = async (pool3) => {
     END
   `);
 
+  // ── GatePassDeptConfig ───────────────────────────────────────────────────
+  // Per-department approval contacts for Gate Pass's email-approval flow.
+  // Seeded/refreshed from the external CLMS directory (BusinessUnit/Division
+  // join) via the "Sync from Directory" action on the config page, but kept
+  // as our own editable table (not read live from CLMS) so Location and any
+  // manual corrections survive a later sync — sync only overwrites the
+  // directory-sourced columns, never Location.
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='GatePassDeptConfig')
+    BEGIN
+      CREATE TABLE GatePassDeptConfig (
+        Id                   INT IDENTITY(1,1) PRIMARY KEY,
+        DeptCode             NVARCHAR(50)   NULL,
+        DeptName             NVARCHAR(200)  NOT NULL,
+        Location             NVARCHAR(200)  NULL,
+        DeptHeadName         NVARCHAR(200)  NULL,
+        DeptHeadEmail        NVARCHAR(200)  NULL,
+        DeptHeadMobNo        NVARCHAR(50)   NULL,
+        DeptManagerEmail     NVARCHAR(200)  NULL,
+        DeptSubManagerEmail  NVARCHAR(200)  NULL,
+        DivisionManagerEmail NVARCHAR(200)  NULL,
+        DivisionOtherEmail   NVARCHAR(200)  NULL,
+        IsActive             BIT            NOT NULL DEFAULT 1,
+        CreatedAt            DATETIME       NOT NULL DEFAULT GETDATE(),
+        UpdatedAt            DATETIME       NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT UQ_GatePassDeptConfig_DeptName UNIQUE (DeptName)
+      );
+      PRINT 'Migration: Created GatePassDeptConfig table';
+    END
+  `);
+
+  // ── GatePassDeptConfig: BusinessUnitName ─────────────────────────────────
+  // DeptName above is sourced from CLMS's Division.Name, but the "Department"
+  // actually auto-filled onto a gate pass (and stored on GatePasses.DeptName)
+  // comes from BusinessUnit.Name via the employee lookup — and those two
+  // names don't always match for the same org unit (e.g. "MFG. ENGINEERING"
+  // vs "MFG"), which silently broke the approval-email lookup. This column
+  // lets a config row match either name.
+  await pool3.request().query(`
+    IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='GatePassDeptConfig')
+    AND NOT EXISTS (
+      SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'GatePassDeptConfig' AND COLUMN_NAME = 'BusinessUnitName'
+    )
+    BEGIN
+      ALTER TABLE GatePassDeptConfig ADD BusinessUnitName NVARCHAR(200) NULL;
+      PRINT 'Migration: Added BusinessUnitName column to GatePassDeptConfig';
+    END
+  `);
+
+  // ── GatePassHRConfig ─────────────────────────────────────────────────────
+  // Single-row settings: who receives the "Pending HR" approval email. HR
+  // approval isn't per-department (unlike Dept Head), so this is one global
+  // contact rather than a table — same single-row pattern as BISApprovalFlow.
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='GatePassHRConfig')
+    BEGIN
+      CREATE TABLE GatePassHRConfig (
+        Id        INT IDENTITY(1,1) PRIMARY KEY,
+        HRName    NVARCHAR(200) NULL,
+        HREmail   NVARCHAR(200) NULL,
+        UpdatedBy NVARCHAR(100) NULL,
+        UpdatedAt DATETIME      NOT NULL DEFAULT GETDATE()
+      );
+      INSERT INTO GatePassHRConfig (HRName, HREmail) VALUES (NULL, NULL);
+      PRINT 'Migration: Created GatePassHRConfig table';
+    END
+  `);
+
   console.log("Migrations completed.");
 };

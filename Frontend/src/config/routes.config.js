@@ -137,6 +137,9 @@ const Gatepasssecuritygate = lazy(
 const Gatepassreports = lazy(
   () => import("../pages/EmployeeManagement/Gatepassreports"),
 );
+const Gatepassconfig = lazy(
+  () => import("../pages/EmployeeManagement/Gatepassconfig"),
+);
 
 const AttendanceRegister = lazy(() => import("../pages/Forms/AttendanceRegister"));
 const MyAttendance = lazy(() => import("../pages/Forms/MyAttendance"));
@@ -824,6 +827,7 @@ export const ROUTE_CONFIG = [
     subgroupConfig: [
       { key: "gatepass", label: "Gatepass" },
       { key: "attendance", label: "Attendance" },
+      { key: "gatepassConfig", label: "Gatepass Config" },
     ],
     items: [
       {
@@ -855,6 +859,12 @@ export const ROUTE_CONFIG = [
         label: "GatePassReports",
         component: Gatepassreports,
         group: "gatepass",
+      },
+      {
+        path: "/employee/gatepass/config",
+        label: "GatePassConfig",
+        component: Gatepassconfig,
+        group: "gatepassConfig",
       },
       {
         path: "/employee/attendance/register",
