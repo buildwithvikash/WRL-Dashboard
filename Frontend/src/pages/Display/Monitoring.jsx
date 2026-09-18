@@ -236,9 +236,6 @@ const LiveClock = ({ shift, shiftDate, accentHex }) => {
         <Clock className="w-3 h-3" style={{ color: accentHex }} />
         <strong className="text-slate-900 font-mono">{timeStr}</strong>
       </span>
-      <span className="ml-auto text-slate-400 text-[11px]">
-        {shift ? (shift === "A" ? "08:00 – 20:00" : "20:00 – 08:00") : "—"}
-      </span>
     </div>
   );
 };

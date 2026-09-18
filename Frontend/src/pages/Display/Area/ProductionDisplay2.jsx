@@ -30,7 +30,7 @@ const ProductionDisplay2 = ({
       actual: d.ActualWorkingMin,
     },
     {
-      label: "Takt Time",
+      label: "Cycle Time",
       unit: "Sec",
       target: d.TactTimeSec,
       actual: d.ActualTaktTimeSec,

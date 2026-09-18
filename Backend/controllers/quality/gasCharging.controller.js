@@ -73,12 +73,15 @@ export const getGasChargingReport = tryCatch(async (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   // Build WHERE clause
-  let whereClause = `WHERE 
-    (
-      TRY_CONVERT(datetime, DATE, 106) BETWEEN @startDate AND @endDate
-      OR TRY_CONVERT(datetime, DATE, 105) BETWEEN @startDate AND @endDate
-      OR TRY_CAST(DATE AS datetime) BETWEEN @startDate AND @endDate
-    )`;
+  // DATE alone (matched with BETWEEN, inclusive both ends) ignored TIME
+  // entirely, so a shift-window query like "today 08:00 -> tomorrow 08:00"
+  // matched whole calendar days instead of the actual shift. Combining
+  // DATE + TIME into one datetime and using a half-open range (>= start,
+  // < end) filters by the real moment and avoids double-counting a record
+  // that lands exactly on the boundary between two adjacent ranges.
+  let whereClause = `WHERE
+    TRY_CONVERT(datetime, DATE + ' ' + TIME, 105) >= @startDate
+    AND TRY_CONVERT(datetime, DATE + ' ' + TIME, 105) < @endDate`;
 
   if (model) {
     whereClause += ` AND MODEL = @model`;
@@ -125,7 +128,7 @@ export const getGasChargingReport = tryCatch(async (req, res) => {
       MACHINE
     FROM ${TABLE_NAME}
     ${whereClause}
-    ORDER BY Result_ID DESC
+    ORDER BY TRY_CONVERT(datetime, DATE + ' ' + TIME, 105) DESC
     OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
   `;
 
