@@ -112,12 +112,18 @@ const REWORK_BASE_CTE = `
         pr.StartedOn          AS Rework_IN,
         pr.CompletedOn        AS Rework_Out,
         us.UserName,
-        s.Status              AS Rework_Status,
-        CONCAT(
-            DATEDIFF(DAY,    pr.StartedOn, pr.CompletedOn), ':',
-            FORMAT((DATEDIFF(MINUTE, pr.StartedOn, pr.CompletedOn) / 60) % 24, 'D2'), ':',
-            FORMAT( DATEDIFF(MINUTE, pr.StartedOn, pr.CompletedOn) % 60,        'D2')
-        )                     AS Duration,
+        CASE
+            WHEN pr.CompletedOn IS NULL THEN 'Active'
+            ELSE 'Closed'
+        END                   AS Rework_Status,
+        CASE
+            WHEN pr.CompletedOn IS NULL THEN NULL
+            ELSE CONCAT(
+                DATEDIFF(DAY,    pr.StartedOn, pr.CompletedOn), ':',
+                FORMAT((DATEDIFF(MINUTE, pr.StartedOn, pr.CompletedOn) / 60) % 24, 'D2'), ':',
+                FORMAT( DATEDIFF(MINUTE, pr.StartedOn, pr.CompletedOn) % 60,        'D2')
+            )
+        END                   AS Duration,
         dct.Type              AS Defect_Category,
         dc.Name               AS Defect,
         rc.Type               AS Root_Cause,
@@ -136,8 +142,6 @@ const REWORK_BASE_CTE = `
         AND pr.ProcessCode = ih.Process
     INNER JOIN WorkCenter w
         ON  pr.StationCode = w.StationCode
-    LEFT  JOIN Status s
-        ON  ih.Status = s.ID
     LEFT  JOIN InspectionDefect idf
         ON  it.ID = idf.ID
     LEFT  JOIN DefectCodeMaster dc

@@ -79,15 +79,6 @@ const FILTER_LABELS = {
   custom: "Custom Range",
 };
 
-const DEFAULT_STATS = {
-  avgRuntime: 0,
-  avgTemp: 0,
-  avgPower: 0,
-  passRate: 0,
-  faultCount: 0,
-  passCount: 0,
-};
-
 // ─── Utilities ─────────────────────────────────────────────────────────────────
 
 const toAPIDateTime = (datetimeLocalValue) => {
@@ -177,7 +168,6 @@ const CPTReport = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
   const [limit, setLimit] = useState(50);
-  const [stats, setStats] = useState(DEFAULT_STATS);
 
   // ── Quick filter date resolver ─────────────────────────────────────────────
   const getQuickFilterDates = (filterType) => {
@@ -208,42 +198,6 @@ const CPTReport = () => {
     }
   };
 
-  // ── Stats calculator ───────────────────────────────────────────────────────
-  const calculateStats = (data) => {
-    if (!data?.length) {
-      setStats(DEFAULT_STATS);
-      return;
-    }
-    const n = data.length;
-    const avgRuntime =
-      data.reduce((a, i) => a + (parseFloat(i.RUNTIME_MINUTES) || 0), 0) / n;
-    const avgTemp =
-      data.reduce(
-        (a, i) =>
-          a +
-          ((parseFloat(i.MAX_TEMPERATURE) || 0) +
-            (parseFloat(i.MIN_TEMPERATURE) || 0)) /
-            2,
-        0,
-      ) / n;
-    const avgPower =
-      data.reduce(
-        (a, i) =>
-          a +
-          ((parseFloat(i.MAX_POWER) || 0) + (parseFloat(i.MIN_POWER) || 0)) / 2,
-        0,
-      ) / n;
-    const passCount = data.filter((i) => i.PERFORMANCE === "PASS").length;
-    setStats({
-      avgRuntime: avgRuntime.toFixed(1),
-      avgTemp: avgTemp.toFixed(1),
-      avgPower: avgPower.toFixed(1),
-      passRate: ((passCount / n) * 100).toFixed(1),
-      faultCount: n - passCount,
-      passCount,
-    });
-  };
-
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchDataWithDates = async (
     start,
@@ -270,7 +224,6 @@ const CPTReport = () => {
         setCurrentPage(res.data.pagination?.currentPage || 1);
         setTotalPages(res.data.pagination?.totalPages || 0);
         setTotalRecords(res.data.pagination?.totalRecords || 0);
-        calculateStats(res.data.data);
       }
     } catch (error) {
       console.error("Failed to fetch CPT Report:", error);
@@ -326,7 +279,6 @@ const CPTReport = () => {
     setTotalPages(0);
     setTotalRecords(0);
     setActiveFilter("");
-    setStats(DEFAULT_STATS);
   };
 
   const handleExportAll = async () => {
@@ -357,8 +309,6 @@ const CPTReport = () => {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const hasData = reportData.length > 0;
-  const passRateNum = parseFloat(stats.passRate);
-
   /* ══════════════════════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════════════════════ */
@@ -392,63 +342,6 @@ const CPTReport = () => {
             </span>
           </div>
 
-          {hasData && (
-            <div
-              className={`flex flex-col items-center px-4 py-1.5 rounded-lg border min-w-[90px] ${
-                passRateNum >= 95
-                  ? "bg-emerald-50 border-emerald-100"
-                  : passRateNum >= 80
-                    ? "bg-amber-50 border-amber-100"
-                    : "bg-rose-50 border-rose-100"
-              }`}
-            >
-              <span
-                className={`text-xl font-bold font-mono ${
-                  passRateNum >= 95
-                    ? "text-emerald-700"
-                    : passRateNum >= 80
-                      ? "text-amber-700"
-                      : "text-rose-700"
-                }`}
-              >
-                {stats.passRate}%
-              </span>
-              <span
-                className={`text-[10px] font-medium uppercase tracking-wide ${
-                  passRateNum >= 95
-                    ? "text-emerald-500"
-                    : passRateNum >= 80
-                      ? "text-amber-500"
-                      : "text-rose-500"
-                }`}
-              >
-                Pass Rate
-              </span>
-            </div>
-          )}
-
-          {hasData && (
-            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-violet-50 border border-violet-100 min-w-[90px]">
-              <span className="text-xl font-bold font-mono text-violet-700">
-                {stats.avgRuntime}
-                <span className="text-[10px] font-medium ml-0.5">m</span>
-              </span>
-              <span className="text-[10px] text-violet-500 font-medium uppercase tracking-wide">
-                Avg Runtime
-              </span>
-            </div>
-          )}
-
-          {hasData && stats.faultCount > 0 && (
-            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-rose-50 border border-rose-100 min-w-[90px]">
-              <span className="text-xl font-bold font-mono text-rose-700">
-                {stats.faultCount}
-              </span>
-              <span className="text-[10px] text-rose-500 font-medium uppercase tracking-wide">
-                Faults
-              </span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -640,21 +533,6 @@ const CPTReport = () => {
               </div>
             </div>
 
-            {/* Pagination top */}
-            {totalRecords > 0 && (
-              <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalRecords={totalRecords}
-                  limit={limit}
-                  onPageChange={handlePageChange}
-                  onLimitChange={handleLimitChange}
-                  isLoading={loading}
-                />
-              </div>
-            )}
-
             {/* Table */}
             <div className="overflow-auto">
               <table className="min-w-full text-xs text-left border-separate border-spacing-0">
@@ -768,6 +646,22 @@ const CPTReport = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalRecords > 0 && (
+              <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 shrink-0">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalRecords={totalRecords}
+                  limit={limit}
+                  onPageChange={handlePageChange}
+                  onLimitChange={handleLimitChange}
+                  isLoading={loading}
+                  compact
+                />
+              </div>
+            )}
           </div>
         )}
 

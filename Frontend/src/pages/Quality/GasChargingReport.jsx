@@ -562,21 +562,6 @@ const GasChargingReport = () => {
                 </span>
               </div>
 
-              {/* Pagination */}
-              {pagination.totalRecords > 0 && (
-                <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 shrink-0">
-                  <Pagination
-                    currentPage={pagination.page}
-                    totalPages={pagination.totalPages}
-                    totalRecords={pagination.totalRecords}
-                    limit={pagination.limit}
-                    onPageChange={(p) => dispatch(setGasChargingPage(p))}
-                    onLimitChange={(l) => dispatch(setGasChargingLimit(l))}
-                    isLoading={isLoading}
-                  />
-                </div>
-              )}
-
               {/* Scrollable table */}
               <div className="flex-1 overflow-auto">
                 <table className="min-w-full text-xs text-left border-separate border-spacing-0">
@@ -696,6 +681,22 @@ const GasChargingReport = () => {
                   </div>
                 )}
               </div>
+
+              {/* Pagination */}
+              {pagination.totalRecords > 0 && (
+                <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 shrink-0">
+                  <Pagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalRecords={pagination.totalRecords}
+                    limit={pagination.limit}
+                    onPageChange={(p) => dispatch(setGasChargingPage(p))}
+                    onLimitChange={(l) => dispatch(setGasChargingLimit(l))}
+                    isLoading={isLoading}
+                    compact
+                  />
+                </div>
+              )}
             </>
           )}
         </div>
