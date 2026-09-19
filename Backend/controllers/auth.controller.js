@@ -360,6 +360,7 @@ export const getMyPhoto = tryCatch(async (req, res) => {
 
     res.set("Content-Type", "image/jpeg");
     res.set("Cache-Control", "private, max-age=3600");
+    res.set("Vary", "Cookie"); // response depends on who's logged in, not just the URL
     res.send(photo);
   } finally {
     await pool.close();
