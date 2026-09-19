@@ -21,7 +21,7 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      handleSessionExpired(store.dispatch);
+      handleSessionExpired(store.dispatch, error.response?.data);
     }
     return Promise.reject(error);
   },

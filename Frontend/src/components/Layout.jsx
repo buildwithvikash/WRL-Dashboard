@@ -3,12 +3,14 @@ import { Outlet } from "react-router-dom";
 import NavBar from "./Navbar";
 import Sidebar from "./Sidebar";
 import { useSyncMasterConfig } from "../hooks/useSyncMasterConfig.js";
+import { useSessionHeartbeat } from "../hooks/useSessionHeartbeat.js";
 
 const Layout = () => {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
   useSyncMasterConfig();
+  useSessionHeartbeat();
 
   useEffect(() => {
     const handleResize = () => {

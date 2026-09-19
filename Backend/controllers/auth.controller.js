@@ -1,11 +1,28 @@
 import sql from "mssql";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 import { dbConfig1, dbConfig4 } from "../config/db.config.js";
 import { tryCatch } from "../utils/tryCatch.js";
 import { AppError } from "../utils/AppError.js";
+import { getClientIp } from "../utils/clientInfo.js";
+import { generateUserCode } from "../utils/userCode.js";
+import {
+  createSession,
+  attachHostToSession,
+  revokeSessions,
+  logAuthEventWithHost,
+} from "../utils/sessionStore.js";
 
 const BCRYPT_SALT_ROUNDS = 10;
+
+const auditLoginFailure = (req, empcod, detail) =>
+  logAuthEventWithHost({
+    type: "LOGIN_FAILED",
+    userId: empcod,
+    ip: getClientIp(req),
+    detail,
+  });
 
 // ================= SIGNUP =================
 export const signup = tryCatch(async (req, res) => {
@@ -28,76 +45,10 @@ export const signup = tryCatch(async (req, res) => {
       throw new AppError("User already exists", 409);
     }
 
-    // 2. Get IDMaster config
-    const idMasterRes = await pool.request().query(`
-      SELECT Series, NoOfDigit 
-      FROM IDMaster 
-      WHERE IDTable = 'USERS'
-    `);
+    // 2. Generate UserCode (IDMaster/IDValue — shared with admin create-user)
+    const userCode = await generateUserCode(() => pool.request());
 
-    if (idMasterRes.recordset.length === 0) {
-      throw new AppError("IDMaster config missing", 500);
-    }
-
-    let { Series, NoOfDigit } = idMasterRes.recordset[0];
-
-    // 3. Current year (last 2 digits)
-    const year = new Date().getFullYear().toString().slice(-2);
-
-    // 4. Get SLNo from IDValue
-    const idValueRes = await pool.request().input("year", sql.VarChar, year)
-      .query(`
-        SELECT SLNo 
-        FROM IDValue 
-        WHERE IDTable = 'USERS' AND Year = @year
-      `);
-
-    let slno = 1;
-
-    if (idValueRes.recordset.length > 0) {
-      slno = idValueRes.recordset[0].SLNo + 1;
-    }
-
-    // 5. Check overflow (999)
-    const maxLimit = Math.pow(10, NoOfDigit) - 1; // 999
-
-    if (slno > maxLimit) {
-      // Increase Series
-      Series = Series + 1;
-
-      // Reset SLNo
-      slno = 1;
-
-      // Update Series in IDMaster
-      await pool.request().input("series", sql.Int, Series).query(`
-          UPDATE IDMaster 
-          SET Series = @series 
-          WHERE IDTable = 'USERS'
-        `);
-    }
-
-    // 6. Update IDValue table
-    await pool
-      .request()
-      .input("year", sql.VarChar, year)
-      .input("slno", sql.Int, slno).query(`
-        IF EXISTS (
-          SELECT 1 FROM IDValue 
-          WHERE IDTable = 'USERS' AND Year = @year
-        )
-          UPDATE IDValue 
-          SET SLNo = @slno 
-          WHERE IDTable = 'USERS' AND Year = @year
-        ELSE
-          INSERT INTO IDValue (IDTable, Year, SLNo)
-          VALUES ('USERS', @year, @slno)
-      `);
-
-    // 7. Generate UserCode
-    const padded = String(slno).padStart(NoOfDigit, "0");
-    const userCode = `${Series}${year}${padded}`;
-
-    // 8. Insert user (inactive)
+    // 3. Insert user (inactive)
     // NOTE: Password stays plaintext here (unchanged) since GARUDA/Users may
     // have consumers outside this app that expect to read it — PasswordHash
     // is additive, so this app can verify via bcrypt without touching that.
@@ -176,16 +127,19 @@ export const login = tryCatch(async (req, res) => {
       `);
 
     if (checkUser.recordset.length === 0) {
+      auditLoginFailure(req, empcod, "User not found");
       throw new AppError("User not found", 404);
     }
 
     const { Status, Locked } = checkUser.recordset[0];
 
     if (Status !== 1) {
+      auditLoginFailure(req, empcod, "Account not activated");
       throw new AppError("Account not activated. Contact admin.", 403);
     }
 
     if (Locked === 1) {
+      auditLoginFailure(req, empcod, "Account is locked");
       throw new AppError("Account is locked", 403);
     }
 
@@ -234,17 +188,43 @@ export const login = tryCatch(async (req, res) => {
     }
 
     if (!passwordMatches) {
+      auditLoginFailure(req, empcod, "Wrong password");
       throw new AppError("Invalid credentials", 401);
     }
 
     // 3. Update last activity
     await pool.request().input("empcod", sql.VarChar, empcod).query(`
-        UPDATE Users 
+        UPDATE Users
         SET LastActivityOn = GETDATE()
         WHERE UserID = @empcod
       `);
 
-    // 4. JWT
+    // 4. Server-side session (powers Settings > User Access: who is logged in,
+    // IP/host, force logout). If the session store is unreachable the login
+    // still succeeds — the token just carries no sid, so it can't be revoked
+    // individually (it is still blocked if the account gets deactivated).
+    const ip = getClientIp(req);
+    const userAgent = (req.headers["user-agent"] || "").slice(0, 500);
+    let sid = randomUUID();
+    try {
+      await createSession({ sid, user, ip, userAgent });
+      attachHostToSession(sid, ip)
+        .then((host) =>
+          logAuthEventWithHost({
+            type: "LOGIN_SUCCESS",
+            userId: user.UserID,
+            userName: user.UserName,
+            ip,
+            detail: host ? undefined : "Host name could not be resolved",
+          }),
+        )
+        .catch((err) => console.error("[Session] host lookup failed:", err.message));
+    } catch (err) {
+      console.error("[Session] could not create session record:", err.message);
+      sid = undefined;
+    }
+
+    // 5. JWT
     const token = jwt.sign(
       {
         id: user.UserID,
@@ -252,6 +232,7 @@ export const login = tryCatch(async (req, res) => {
         usercode: user.UserCode,
         role: user.UserRole,
         roleName: user.RoleName,
+        sid,
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" },
@@ -333,6 +314,14 @@ export const changePassword = tryCatch(async (req, res) => {
         WHERE UserID = @empcod
       `);
 
+    logAuthEventWithHost({
+      type: "PASSWORD_CHANGED",
+      userId: empcod,
+      userName: req.user.name,
+      ip: getClientIp(req),
+      detail: "Changed by the user",
+    });
+
     res.status(200).json({
       success: true,
       message: "Password changed successfully",
@@ -377,8 +366,40 @@ export const getMyPhoto = tryCatch(async (req, res) => {
   }
 });
 
+// ================= SESSION HEARTBEAT =================
+// Cheap authenticated ping the frontend calls periodically: it keeps this
+// session's "last seen" fresh, and — because authenticate() rejects a revoked
+// session — is how a force-logout reaches an idle browser tab within a minute
+// instead of only at that user's next click.
+export const sessionPing = (req, res) => {
+  res.status(200).json({ success: true });
+};
+
 // ================= LOGOUT =================
-export const logout = tryCatch(async (_, res) => {
+// Not behind authenticate() (a dead/revoked session must still be able to
+// clear its cookie), so the token is decoded here on a best-effort basis to
+// close out the matching session row.
+export const logout = tryCatch(async (req, res) => {
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+      if (decoded.sid) {
+        const ended = await revokeSessions({ sid: decoded.sid, reason: "user", revokedBy: decoded.id });
+        if (ended) {
+          logAuthEventWithHost({
+            type: "LOGOUT",
+            userId: decoded.id,
+            userName: decoded.name,
+            ip: getClientIp(req),
+          });
+        }
+      }
+    } catch (err) {
+      // Bad/absent token or session store hiccup — the cookie is cleared below regardless.
+    }
+  }
+
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

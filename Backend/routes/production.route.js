@@ -70,6 +70,8 @@ import {
   getReworkReport,
   getFunctionalTest,
   getSerialNumbers,
+  getHoldDetails,
+  getUnitSummary,
 } from "../controllers/production/consolidatedReport.controller.js";
 import {
   nfcReportExportData,
@@ -219,6 +221,8 @@ router.get("/reprint-history", authenticate, getReprintHistory);
 router.get("/component-details", authenticate, getComponentDetails);
 router.get("/functional-test", authenticate, getFunctionalTest);
 router.get("/serial-numbers", authenticate, getSerialNumbers);
+router.get("/hold-details", authenticate, getHoldDetails);
+router.get("/unit-summary", authenticate, getUnitSummary);
 
 // -----------------> NFC Report
 router.get("/nfc-details", authenticate, getNfcReoprts);

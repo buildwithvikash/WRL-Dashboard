@@ -147,6 +147,7 @@ const Sidebar = ({ isSidebarExpanded, toggleSidebar }) => {
   const SETTINGS_ITEMS = [
     { path: "/settings", label: "Permission Manager" },
     { path: "/settings/mail-server", label: "Mail Server" },
+    { path: "/settings/user-management", label: "User Management" },
   ];
   const isSettingsGroupActive = SETTINGS_ITEMS.some((i) => location.pathname === i.path);
   const isExpanded = isSidebarExpanded || isMobile;
