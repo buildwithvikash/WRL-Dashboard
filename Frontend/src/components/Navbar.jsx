@@ -41,7 +41,10 @@ const NavBar = () => {
     }
   };
 
-  const photoUrl = `${baseURL}auth/my-photo`;
+  // The server caches this image for an hour (Cache-Control: private), keyed by
+  // URL — so the URL must differ per user, otherwise logging in as someone else
+  // in the same browser keeps showing the previous user's photo.
+  const photoUrl = `${baseURL}auth/my-photo?u=${encodeURIComponent(user?.id ?? "")}`;
 
   return (
     <nav className="sticky top-0 z-50 bg-white h-16 flex items-center px-4 shadow-sm border-b border-gray-200">
