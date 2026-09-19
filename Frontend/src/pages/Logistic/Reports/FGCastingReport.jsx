@@ -56,16 +56,16 @@ const FGCastingReport = () => {
 
   const fetchFgCastingDataBySession = async () => {
     if (!serialNumber) {
-      toast.error("Please select Serial Number.");
+      toast.error("Please enter a Session ID or FG Serial Number.");
       return;
     }
     try {
       setLoading(true);
       const res = await axios.get(`${baseURL}dispatch/fg-casting`, {
-        params: { sessionId: serialNumber },
+        params: { searchValue: serialNumber },
       });
       const data = res?.data?.data;
-      setFetchFgCastingData(data);
+      setFetchFgCastingData(data || []);
     } catch (error) {
       console.error("Failed to fetch Fg Casting data:", error);
       toast.error("Failed to fetch Fg Casting data");
@@ -129,9 +129,9 @@ const FGCastingReport = () => {
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[220px]">
               <InputField
-                label="Serial Number"
+                label="Session ID / FG Serial No."
                 type="text"
-                placeholder="Enter Serial Number"
+                placeholder="Enter Session ID or FG Serial Number"
                 name="serialNumber"
                 value={serialNumber}
                 onChange={(e) => setSerialNumber(e.target.value)}
@@ -159,8 +159,8 @@ const FGCastingReport = () => {
               <ExportButton
                 data={fetchFgCastingData.map((item) => ({
                   ModelName: item.ModelName,
-                  FGSerialNo: item.FG_Serial,
-                  AssetCode: item.VSerial,
+                  Serial: item.FG_Serial,
+                  AssetCode: item.AssetCode,
                   CustomerQR: item.CustomerQR,
                   NFCID: item.NFCID,
                   CreatedOn:
@@ -288,7 +288,7 @@ const FGCastingReport = () => {
                       {item.FG_Serial}
                     </td>
                     <td className="px-3 py-2 text-slate-500 font-mono whitespace-nowrap">
-                      {item.VSerial}
+                      {item.AssetCode}
                     </td>
                     <td className="px-3 py-2 text-slate-500 whitespace-nowrap">
                       {item.CustomerQR}

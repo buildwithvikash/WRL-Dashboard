@@ -92,7 +92,7 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 // in main.jsx. Both funnel into the same handleSessionExpired.
 const authExpiryMiddleware = ({ dispatch }) => (next) => (action) => {
   if (isRejectedWithValue(action) && action.payload?.status === 401) {
-    handleSessionExpired(dispatch);
+    handleSessionExpired(dispatch, action.payload?.data);
   }
   return next(action);
 };

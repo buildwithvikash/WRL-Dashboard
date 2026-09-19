@@ -12,12 +12,23 @@ import { logoutUser } from "../redux/slices/authSlice.js";
 let toastShownAt = 0;
 const TOAST_COOLDOWN_MS = 5000; // several requests can 401 in the same burst — one toast, not five
 
-export const handleSessionExpired = (dispatch) => {
+// When an admin ends a session or disables the account, the server's 401 body
+// carries a `code` + human message — show that instead of the generic
+// "session expired" text so the user knows it wasn't a timeout.
+const ADMIN_REVOKE_CODES = ["SESSION_REVOKED", "ACCOUNT_DISABLED"];
+
+export const handleSessionExpired = (dispatch, responseBody) => {
   dispatch(logoutUser());
 
   const now = Date.now();
   if (now - toastShownAt > TOAST_COOLDOWN_MS) {
     toastShownAt = now;
-    toast.error("Your session has expired. Please log in again.");
+    const revoked = ADMIN_REVOKE_CODES.includes(responseBody?.code);
+    toast.error(
+      revoked && responseBody?.message
+        ? responseBody.message
+        : "Your session has expired. Please log in again.",
+      { duration: revoked ? 8000 : 4000 },
+    );
   }
 };

@@ -4,16 +4,27 @@ import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
 
 export const getDispatchMasterBySession = tryCatch(async (req, res) => {
-  const { sessionId } = req.query;
+  // Accepts either a Session_ID or an FGSerialNo in the same field — resolves
+  // it to the owning Session_ID, then returns every FG under that session.
+  const { searchValue, sessionId } = req.query;
+  const term = searchValue || sessionId;
 
-  if (!sessionId) {
-    throw new AppError("Missing required query parameters: sessionId.", 400);
+  if (!term) {
+    throw new AppError(
+      "Missing required query parameter: searchValue (Session ID or FG Serial No.).",
+      400,
+    );
   }
 
   const query = `
-   /*----------------------------------------------------
-      STEP 1 : Collect FG Serials
-    ----------------------------------------------------*/
+    DECLARE @SessionID VARCHAR(200);
+
+    SELECT TOP 1
+        @SessionID = Session_ID
+    FROM DispatchMaster
+    WHERE Session_ID = @SearchValue
+       OR FGSerialNo = @SearchValue;
+
     IF OBJECT_ID('tempdb..#FGList') IS NOT NULL
         DROP TABLE #FGList;
 
@@ -21,39 +32,28 @@ export const getDispatchMasterBySession = tryCatch(async (req, res) => {
         CAST(FGSerialNo AS VARCHAR(50)) AS FGSerialNo
     INTO #FGList
     FROM DispatchMaster
-    WHERE Session_ID = @SessionId;
+    WHERE Session_ID = @SessionID;
 
-
-    /*----------------------------------------------------
-      STEP 2 : Build IN list
-    ----------------------------------------------------*/
     DECLARE @FG_IN_LIST NVARCHAR(MAX);
+    SELECT @FG_IN_LIST = STRING_AGG('''' + FGSerialNo + '''', ',') FROM #FGList;
+    IF @FG_IN_LIST IS NULL SET @FG_IN_LIST = 'NULL';
 
-    SELECT @FG_IN_LIST =
-        STRING_AGG('''' + FGSerialNo + '''', ',')
-    FROM #FGList;
-
-
-    /*----------------------------------------------------
-      STEP 2.5 : Escape for OPENQUERY
-    ----------------------------------------------------*/
+    -- Escaped for safe embedding inside the OPENQUERY string literal below.
     DECLARE @FG_IN_LIST_ESCAPED NVARCHAR(MAX);
     SET @FG_IN_LIST_ESCAPED = REPLACE(@FG_IN_LIST, '''', '''''');
 
+    -- Escaped for safe concatenation into the dynamic SQL string below.
+    DECLARE @SessionIDEscaped NVARCHAR(200) = REPLACE(ISNULL(@SessionID, ''), '''', '''''');
 
-    /*----------------------------------------------------
-      STEP 3 : Dynamic SQL
-    ----------------------------------------------------*/
     DECLARE @sql NVARCHAR(MAX);
 
     SET @sql = N'
     SELECT
-        dm.ModelName,
-        dm.Session_ID,
+        DM.ModelName,
         mb.Serial        AS FG_Serial,
-        mb.VSerial,
+        mb.VSerial       AS AssetCode,
 
-        -- Split Serial2
+        -- Serial2 = ''<NFCID>/<CustomerQR>''
         LEFT(mb.Serial2, CHARINDEX(''/'', mb.Serial2 + ''/'') - 1) AS NFCID,
         SUBSTRING(
             mb.Serial2,
@@ -62,7 +62,7 @@ export const getDispatchMasterBySession = tryCatch(async (req, res) => {
         ) AS CustomerQR,
 
         mb.CreatedOn
-    FROM DispatchMaster dm
+    FROM DispatchMaster AS DM
     INNER JOIN OPENQUERY(
         WRL_SERVER,
         ''
@@ -76,8 +76,8 @@ export const getDispatchMasterBySession = tryCatch(async (req, res) => {
         ''
     ) mb
         ON mb.Serial COLLATE SQL_Latin1_General_CP1_CI_AS
-         = dm.FGSerialNo COLLATE SQL_Latin1_General_CP1_CI_AS
-    WHERE dm.Session_ID = ''' + @SessionId + ''';';
+         = DM.FGSerialNo COLLATE SQL_Latin1_General_CP1_CI_AS
+    WHERE DM.Session_ID = ''' + @SessionIDEscaped + ''';';
 
     EXEC (@sql);
   `;
@@ -87,13 +87,13 @@ export const getDispatchMasterBySession = tryCatch(async (req, res) => {
   try {
     const result = await pool
       .request()
-      .input("SessionId", sql.VarChar, sessionId)
+      .input("SearchValue", sql.VarChar, term)
       .query(query);
 
     res.json({
       success: true,
       message: "FG Casting data retrieved successfully.",
-      data: result.recordset,
+      data: result.recordset ?? [],
     });
   } catch (error) {
     throw new AppError(`Failed to fetch FG Casting data:${error.message}`, 500);

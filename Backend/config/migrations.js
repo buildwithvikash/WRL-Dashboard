@@ -1069,5 +1069,60 @@ export const runMigrations = async (pool3) => {
     END
   `);
 
+  // ── UserSessions: one row per login (server-side session record) ──────────
+  // Auth is a stateless JWT cookie; this table is what makes "who is logged
+  // in", their IP/host, and admin Force Logout possible — the JWT carries the
+  // SessionId (sid) and authenticate() rejects it once LogoutAt is set. All
+  // time columns are SQL Server GETDATE() so "online"/"expired" math is done
+  // in SQL and never depends on node-vs-DB timezone handling.
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='UserSessions')
+    BEGIN
+      CREATE TABLE UserSessions (
+        Id           INT IDENTITY(1,1) PRIMARY KEY,
+        SessionId    UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+        UserCode     INT              NULL,
+        UserID       NVARCHAR(50)     NOT NULL,
+        UserName     NVARCHAR(200)    NULL,
+        RoleName     NVARCHAR(100)    NULL,
+        IpAddress    NVARCHAR(64)     NULL,
+        HostName     NVARCHAR(255)    NULL,
+        UserAgent    NVARCHAR(500)    NULL,
+        LoginAt      DATETIME         NOT NULL DEFAULT GETDATE(),
+        LastSeenAt   DATETIME         NOT NULL DEFAULT GETDATE(),
+        ExpiresAt    DATETIME         NOT NULL,
+        LogoutAt     DATETIME         NULL,
+        LogoutReason NVARCHAR(30)     NULL, -- user | forced | deactivated | locked | password_reset
+        RevokedBy    NVARCHAR(100)    NULL,
+        CONSTRAINT UQ_UserSessions_SessionId UNIQUE (SessionId)
+      );
+      CREATE INDEX IX_UserSessions_User_Login ON UserSessions (UserID, LoginAt DESC);
+      CREATE INDEX IX_UserSessions_Active ON UserSessions (LogoutAt, ExpiresAt);
+      PRINT 'Migration: Created UserSessions table';
+    END
+  `);
+
+  // ── AuthAuditLog: login attempts + admin user-access actions ──────────────
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='AuthAuditLog')
+    BEGIN
+      CREATE TABLE AuthAuditLog (
+        Id          INT IDENTITY(1,1) PRIMARY KEY,
+        EventType   NVARCHAR(40)  NOT NULL,
+        UserID      NVARCHAR(50)  NULL,
+        UserName    NVARCHAR(200) NULL,
+        ActorUserID NVARCHAR(50)  NULL,
+        ActorName   NVARCHAR(200) NULL,
+        IpAddress   NVARCHAR(64)  NULL,
+        HostName    NVARCHAR(255) NULL,
+        Detail      NVARCHAR(500) NULL,
+        CreatedAt   DATETIME      NOT NULL DEFAULT GETDATE()
+      );
+      CREATE INDEX IX_AuthAuditLog_CreatedAt ON AuthAuditLog (CreatedAt DESC);
+      CREATE INDEX IX_AuthAuditLog_User ON AuthAuditLog (UserID, CreatedAt DESC);
+      PRINT 'Migration: Created AuthAuditLog table';
+    END
+  `);
+
   console.log("Migrations completed.");
 };

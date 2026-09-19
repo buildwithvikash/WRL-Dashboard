@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Cpu,
   Link,
+  Lock,
 } from "lucide-react";
 
 // ── Tab sub-components ─────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ import ReworkReportTable from "./tabs/ReworkReportTable";
 import ReprintHistoryTable from "./tabs/ReprintHistoryTable";
 import HistoryCardTable from "./tabs/HistoryCard";
 import SerialNumbersTable from "./tabs/SerialNumbersTable";
+import HoldDetailsTable from "./tabs/HoldDetailsTable";
 
 // ── Spinner ────────────────────────────────────────────────────────────────────
 const Spinner = ({ cls = "w-4 h-4" }) => (
@@ -160,6 +162,21 @@ const TABS = [
     dot: "bg-slate-400",
     description: "Full production + rework + pending stages",
   },
+  {
+    key: "holdDetails",
+    label: "Hold Details",
+    shortLabel: "Hold",
+    icon: Lock,
+    endpoint: "prod/hold-details",
+    paramKey: "componentIdentifier",
+    exportFilename: "Hold_Details_Report",
+    accentBg: "bg-orange-50",
+    accentBorder: "border-orange-500",
+    accentText: "text-orange-700",
+    accentBadge: "bg-orange-100 text-orange-700",
+    dot: "bg-orange-400",
+    description: "Dispatch hold / release history for this unit",
+  },
 ];
 
 const TAB_COMPONENTS = {
@@ -171,6 +188,7 @@ const TAB_COMPONENTS = {
   reworkReport: ReworkReportTable,
   reprintHistory: ReprintHistoryTable,
   historyCard: HistoryCardTable,
+  holdDetails: HoldDetailsTable,
 };
 
 const HISTORY_KEY = "cr_search_history";
@@ -281,7 +299,7 @@ function HistoryDropdown({ history, onSelect, onClear, onRemove }) {
 // ── Summary Grid ───────────────────────────────────────────────────────────────
 function SummaryGrid({ tabCache, activeTab, onTabClick }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 shrink-0">
+    <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-9 gap-2 shrink-0">
       {TABS.map((tab) => {
         const cache = tabCache[tab.key];
         const count = cache.fetched ? getCount(tab.key, cache.data) : null;
@@ -360,34 +378,84 @@ function CopyPill({ value }) {
   );
 }
 
-function MetaStrip({ materialName, barcodeAlias, serial, customerQr, asset }) {
+const STATUS_STYLES = {
+  DISPATCHED: "bg-emerald-600 text-white border-emerald-700",
+  UNLOADED: "bg-teal-500 text-white border-teal-600",
+  HOLD: "bg-rose-500 text-white border-rose-600",
+  REWORK: "bg-orange-500 text-white border-orange-600",
+  IN_PROCESS: "bg-blue-600 text-white border-blue-700",
+  NOT_STARTED: "bg-slate-200 text-slate-600 border-slate-300",
+};
+
+function StatusPill({ status }) {
+  if (!status) return null;
+  const text =
+    status.code === "REWORK" && status.stage
+      ? `REWORK · ${status.stage}`
+      : status.label;
+  return (
+    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-100 shadow-sm text-xs">
+      <span className="text-slate-400">Status:</span>
+      <span
+        className={`px-2.5 py-0.5 rounded-md border font-bold tracking-wide ${
+          STATUS_STYLES[status.code] || STATUS_STYLES.NOT_STARTED
+        }`}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function MetaStrip({ summary, loading }) {
+  if (!summary && !loading) return null;
+  if (!summary) {
+    return (
+      <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2 text-xs text-slate-400">
+        <Spinner cls="w-3.5 h-3.5" /> Loading unit details…
+      </div>
+    );
+  }
   const items = [
     {
       label: "Material",
-      value: materialName,
+      value: summary.materialName,
       cls: "text-indigo-600 bg-indigo-50",
     },
     {
-      label: "Assembly Barcode",
-      value: barcodeAlias,
+      label: "Assembly Serial No.",
+      value: summary.assemblySerial,
       cls: "text-violet-600 bg-violet-50",
     },
     {
+      label: "Foaming Serial No.",
+      value: summary.foamingSerial,
+      cls: "text-fuchsia-600 bg-fuchsia-50",
+    },
+    {
       label: "FG Serial",
-      value: serial,
+      value: summary.fgSerial,
       cls: "text-emerald-600 bg-emerald-50",
     },
     {
       label: "Customer QR",
-      value: customerQr,
+      value: summary.customerQR,
       cls: "text-cyan-600 bg-cyan-50",
     },
-    { label: "Asset", value: asset, cls: "text-amber-600 bg-amber-50" },
+    { label: "Asset", value: summary.asset, cls: "text-amber-600 bg-amber-50" },
+    {
+      label: "Assembly Barcode",
+      value:
+        summary.barcodeAlias !== summary.assemblySerial
+          ? summary.barcodeAlias
+          : "",
+      cls: "text-slate-600 bg-slate-100",
+    },
   ].filter((i) => i.value && i.value !== "N/A");
-  if (!items.length) return null;
   return (
     <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-wrap gap-2 items-center">
       <Package className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+      <StatusPill status={summary.status} />
       {items.map((item, i) => (
         <div
           key={i}
@@ -432,11 +500,8 @@ function ConsolidatedReport() {
   const [showHistory, setShowHistory] = useState(false);
   const [searchHistory, setSearchHistory] = useState(loadHistory);
 
-  const [materialName, setMaterialName] = useState("");
-  const [barcodeAlias, setBarcodeAlias] = useState("");
-  const [serial, setSerial] = useState("");
-  const [customerQr, setCustomerQr] = useState("");
-  const [asset, setAsset] = useState("");
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const freshCache = () => {
     const out = {};
@@ -500,14 +565,6 @@ function ConsolidatedReport() {
         params: { [tab.paramKey]: identifier },
       });
       const data = parseResponse(tabKey, response);
-      if (tabKey === "stageHistory") {
-        const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
-        setMaterialName(row?.MaterialName || "");
-        setBarcodeAlias(row?.BarcodeAlias || "");
-        setSerial(row?.Serial || "");
-        setCustomerQr(row?.CustomerQR || "");
-        setAsset(row?.VSerial || "");
-      }
       setTabCache((prev) => ({
         ...prev,
         [tabKey]: { data, loading: false, fetched: true },
@@ -526,6 +583,26 @@ function ConsolidatedReport() {
     }
   }, []);
 
+  // Identity strip + status shown above every tab; loaded on each query so it
+  // doesn't depend on which tab happens to be open.
+  const fetchSummary = useCallback(async (identifier) => {
+    setSummaryLoading(true);
+    try {
+      const response = await axios.get(`${baseURL}prod/unit-summary`, {
+        params: { componentIdentifier: identifier },
+      });
+      if (queriedSerial.current !== identifier) return;
+      setSummary(response?.data?.data || null);
+    } catch (err) {
+      console.error(err);
+      if (queriedSerial.current !== identifier) return;
+      toast.error("Failed to load unit details");
+      setSummary(null);
+    } finally {
+      if (queriedSerial.current === identifier) setSummaryLoading(false);
+    }
+  }, []);
+
   const runQuery = async (id) => {
     const trimmed = id.trim();
     if (!trimmed) {
@@ -535,18 +612,14 @@ function ConsolidatedReport() {
     setShowHistory(false);
     if (queriedSerial.current !== trimmed) {
       setTabCache(freshCache());
-      setMaterialName("");
-      setBarcodeAlias("");
-      setSerial("");
-      setCustomerQr("");
-      setAsset("");
+      setSummary(null);
     }
     queriedSerial.current = trimmed;
     setComponentIdentifier(trimmed);
     setQueried(true);
     saveHistory(trimmed);
     setSearchHistory(loadHistory());
-    await fetchTabData(activeTab, trimmed);
+    await Promise.all([fetchTabData(activeTab, trimmed), fetchSummary(trimmed)]);
   };
 
   const handleQuery = () => runQuery(componentIdentifier);
@@ -579,15 +652,13 @@ function ConsolidatedReport() {
       [activeTab]: { data: null, loading: false, fetched: false },
     }));
     fetchTabData(activeTab, queriedSerial.current);
+    fetchSummary(queriedSerial.current);
   };
 
   const handleReset = () => {
     setComponentIdentifier("");
-    setMaterialName("");
-    setBarcodeAlias("");
-    setSerial("");
-    setCustomerQr("");
-    setAsset("");
+    setSummary(null);
+    setSummaryLoading(false);
     setQueried(false);
     setActiveTab(TABS[0].key);
     queriedSerial.current = "";
@@ -738,13 +809,7 @@ function ConsolidatedReport() {
             </div>
           </div>
 
-          <MetaStrip
-            materialName={materialName}
-            barcodeAlias={barcodeAlias}
-            serial={serial}
-            customerQr={customerQr}
-            asset={asset}
-          />
+          {queried && <MetaStrip summary={summary} loading={summaryLoading} />}
         </div>
 
         {/* ── SUMMARY GRID + PROGRESS ── */}

@@ -1,7 +1,164 @@
 import sql from "mssql";
-import { dbConfig1 } from "../../config/db.config.js";
+import { dbConfig1, dbConfig2 } from "../../config/db.config.js";
 import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
+
+// ═══════════════════════════════════════════════════════════════════
+// Unit Summary — identity strip + current status, shown above every tab.
+// Status priority: DISPATCHED > HOLD > UNLOADED > REWORK > in-process stage.
+//   ProcessRouting.Status: 0 = pending, 1 = in progress, 2 = completed
+//   MaterialBarcode.Status: 11 = Hold
+// Unloading/dispatch live in WWMS (dbConfig2); a failure there degrades to
+// the production-side status instead of failing the whole strip.
+// ═══════════════════════════════════════════════════════════════════
+export const getUnitSummary = tryCatch(async (req, res) => {
+  const { componentIdentifier } = req.query;
+  if (!componentIdentifier) throw new AppError("Component Identifier is required", 400);
+
+  const query = `
+    DECLARE @id VARCHAR(100) = @componentIdentifier;
+    DECLARE @DocNo BIGINT;
+
+    SELECT TOP 1 @DocNo = PSNo FROM ProcessStageLabel WHERE BarcodeNo = @id;
+    IF @DocNo IS NULL
+      SELECT TOP 1 @DocNo = DocNo FROM MaterialBarcode WHERE Serial = @id OR Alias = @id;
+
+    IF @DocNo IS NULL
+    BEGIN
+      SELECT CAST(1 AS BIT) AS NotFound;
+      RETURN;
+    END
+
+    -- 0: identity (FG / assembly barcode row)
+    SELECT TOP 1
+      @DocNo      AS PSNo,
+      b.Serial,
+      b.Alias,
+      b.VSerial   AS Asset,
+      b.Serial2   AS CustomerQR,
+      b.Status    AS MbStatus,
+      m.Name      AS MaterialName
+    FROM MaterialBarcode b
+    LEFT JOIN Material m ON m.MatCode = b.Material
+    WHERE b.DocNo = @DocNo AND b.Type IN (100, 400)
+    ORDER BY CASE b.Type WHEN 100 THEN 0 ELSE 1 END;
+
+    -- 1: labels (foaming F..., assembly S..., FG 4...)
+    SELECT DISTINCT BarcodeNo FROM ProcessStageLabel WHERE PSNo = @DocNo;
+
+    -- 2: unreleased dispatch hold
+    SELECT TOP 1 CAST(1 AS BIT) AS OnHold
+    FROM DispatchHold dh
+    WHERE dh.ReleasedDateTime IS NULL
+      AND dh.Serial IN (
+        SELECT BarcodeNo FROM ProcessStageLabel WHERE PSNo = @DocNo
+        UNION
+        SELECT Serial FROM MaterialBarcode WHERE DocNo = @DocNo AND Type IN (100, 400)
+      );
+
+    -- 3: ongoing rework (same definition as the Rework Report "Ongoing")
+    SELECT TOP 1 w.Name AS Station
+    FROM InspectionTrans it
+    INNER JOIN InspectionHeader ih ON it.InspectionLotNo = ih.InspectionLotNo
+    INNER JOIN ProcessRouting  pr ON ih.DocNo = pr.PSNo AND pr.ProcessCode = ih.Process
+    INNER JOIN WorkCenter      w  ON pr.StationCode = w.StationCode
+    WHERE it.NextAction = 1
+      AND ih.DocNo = @DocNo
+      AND pr.StartedOn IS NOT NULL
+      AND pr.CompletedOn IS NULL
+    ORDER BY pr.StartedOn DESC;
+
+    -- 4: current process stage — in-progress stage first, else last completed
+    SELECT TOP 1 w.Name AS Station
+    FROM ProcessRouting pr
+    INNER JOIN WorkCenter w ON w.StationCode = pr.StationCode
+    WHERE pr.PSNo = @DocNo AND pr.Status IN (1, 2)
+    ORDER BY CASE WHEN pr.Status = 1 THEN 0 ELSE 1 END,
+             ISNULL(pr.CompletedOn, pr.StartedOn) DESC;
+  `;
+
+  const pool = await new sql.ConnectionPool(dbConfig1).connect();
+  let sets;
+  try {
+    const result = await pool.request()
+      .input("componentIdentifier", sql.VarChar, componentIdentifier)
+      .query(query);
+    sets = result.recordsets;
+  } catch (err) {
+    throw new AppError(`Failed to fetch Unit Summary: ${err.message}`, 500);
+  } finally {
+    await pool.close();
+  }
+
+  if (!sets?.length || sets[0][0]?.NotFound) {
+    return res.status(200).json({ success: true, message: "No unit found", data: null });
+  }
+
+  const identity = sets[0][0] || {};
+  const labels = (sets[1] || []).map((r) => String(r.BarcodeNo || ""));
+  const startsWith = (p) => labels.find((l) => l.toUpperCase().startsWith(p)) || "";
+
+  const foamingSerial = startsWith("F");
+  const assemblySerial =
+    startsWith("S") ||
+    (String(identity.Serial || "").toUpperCase().startsWith("S") ? identity.Serial : "");
+  const fgSerial =
+    startsWith("4") ||
+    (identity.Serial && !/^[FS]/i.test(identity.Serial) ? identity.Serial : "");
+
+  const onHold = identity.MbStatus === 11 || !!sets[2]?.[0]?.OnHold;
+  const reworkStation = sets[3]?.[0]?.Station || null;
+  const processStation = sets[4]?.[0]?.Station || null;
+
+  let dispatched = false;
+  let unloaded = false;
+  if (fgSerial) {
+    let pool2;
+    try {
+      pool2 = await new sql.ConnectionPool(dbConfig2).connect();
+      const r = await pool2.request()
+        .input("fg", sql.VarChar, fgSerial)
+        .query(`
+          SELECT
+            (SELECT COUNT(*) FROM DispatchMaster dm
+               INNER JOIN Tracking_Document td ON td.Document_ID = dm.Document_ID
+             WHERE dm.FGSerialNo = @fg AND td.LatestStatus = 'Completed') AS Dispatched,
+            (SELECT COUNT(*) FROM DispatchUnloading WHERE FGSerialNo = @fg) AS Unloaded;
+        `);
+      dispatched = (r.recordset[0]?.Dispatched || 0) > 0;
+      unloaded = (r.recordset[0]?.Unloaded || 0) > 0;
+    } catch (err) {
+      console.error("[UnitSummary] WWMS lookup failed:", err.message);
+    } finally {
+      if (pool2) await pool2.close();
+    }
+  }
+
+  let status;
+  if (dispatched) status = { code: "DISPATCHED", label: "DISPATCHED", stage: null };
+  else if (onHold) status = { code: "HOLD", label: "HOLD", stage: null };
+  else if (unloaded) status = { code: "UNLOADED", label: "UNLOADED", stage: null };
+  else if (reworkStation) status = { code: "REWORK", label: "REWORK", stage: reworkStation };
+  else if (processStation)
+    status = { code: "IN_PROCESS", label: processStation, stage: processStation };
+  else status = { code: "NOT_STARTED", label: "NOT STARTED", stage: null };
+
+  res.status(200).json({
+    success: true,
+    message: "Unit Summary retrieved",
+    data: {
+      psNo: identity.PSNo,
+      materialName: identity.MaterialName || "",
+      assemblySerial,
+      foamingSerial,
+      fgSerial,
+      barcodeAlias: identity.Alias || "",
+      asset: identity.Asset || "",
+      customerQR: identity.CustomerQR || "",
+      status,
+    },
+  });
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // Stage History
@@ -519,7 +676,7 @@ export const getFunctionalTest = tryCatch(async (req, res) => {
         FROM PLIS.dbo.DEVICES_STATUS_CODES WHERE LANGUAGE_ID = 0
       ) Code_Name ON Code_Name.STATUS_CODE_ID = Step_Status.DEVICE_STATUS_CODE
                  AND Code_Name.STATUS_CODE_TYPE = Step_Status.Status_Type_ID
-      WHERE MAIN.AREA_ID IN (5, 6, 8)
+      WHERE MAIN.AREA_ID IN (5, 6, 8, 9)
         AND MAIN.BARCODE COLLATE DATABASE_DEFAULT IN (SELECT BarcodeNo FROM @Barcodes)
         AND MAIN.Result_ID NOT IN (SELECT Result_ID FROM GasChargeSUSDtls)
       ORDER BY MAIN.Result_ID DESC;
@@ -563,6 +720,58 @@ export const getFunctionalTest = tryCatch(async (req, res) => {
   }
 });
 
+
+// ═══════════════════════════════════════════════════════════════════
+// Hold Unit Details — same DispatchHold data as Quality's Hold Cabinet
+// Details report, scoped to a single FG Serial instead of a date range.
+// ═══════════════════════════════════════════════════════════════════
+export const getHoldDetails = tryCatch(async (req, res) => {
+  const { componentIdentifier } = req.query;
+  if (!componentIdentifier) throw new AppError("Component Identifier is required", 400);
+
+  const query = `
+    SELECT
+      m.Name                                              AS ModelNo,
+      dh.Serial                                           AS FGSerialNo,
+      dh.DefectCode                                       AS HoldReason,
+      dh.ResponsibleDepartment                            AS ResponsibleDepartment,
+      dh.ResponsibleHOD                                   AS ResponsibleHOD,
+      dh.TargetDateOfReworkCompletion                     AS TargetDateOfReworkCompletion,
+      dh.HoldDatetime                                     AS HoldDate,
+      u.UserName                                          AS HoldBy,
+      DATEDIFF(
+        DAY,
+        dh.HoldDateTime,
+        ISNULL(dh.ReleasedDateTime, GETDATE())
+      )                                                   AS DaysOnHold,
+      ISNULL(dh.Action, 'Not Released')                  AS CorrectiveAction,
+      dh.ReleasedDateTime                                 AS ReleasedOn,
+      us.UserName                                         AS ReleasedBy,
+      CASE
+        WHEN dh.ReleasedDateTime IS NULL THEN 'Hold'
+        ELSE 'Release'
+      END                                                 AS Status
+    FROM DispatchHold AS dh
+    INNER JOIN MaterialBarcode mb ON mb.Serial  = dh.Serial
+    INNER JOIN Material        m  ON m.MatCode  = dh.Material
+    LEFT  JOIN Users           u  ON u.UserCode = dh.HoldUserCode
+    LEFT  JOIN Users           us ON us.UserCode = dh.ReleasedUserCode
+    WHERE dh.Serial = @componentIdentifier
+    ORDER BY dh.HoldDatetime DESC;
+  `;
+
+  const pool = await new sql.ConnectionPool(dbConfig1).connect();
+  try {
+    const result = await pool.request()
+      .input("componentIdentifier", sql.NVarChar, componentIdentifier)
+      .query(query);
+    res.status(200).json({ success: true, message: "Hold Details retrieved", data: result.recordset });
+  } catch (err) {
+    throw new AppError(`Failed to fetch Hold Details: ${err.message}`, 500);
+  } finally {
+    await pool.close();
+  }
+});
 
 export const getSerialNumbers = tryCatch(async (req, res) => {
   const { componentIdentifier } = req.query;
