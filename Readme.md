@@ -210,7 +210,6 @@ WRL-Tool-Report-Dashboard/
 │   │   │   ├── componentTraceabilityReport.controller.js
 │   │   │   ├── hourlyReport.controller.js
 │   │   │   ├── lineHourlyReport.controller.js
-│   │   │   ├── modelNameUpdate.controller.js
 │   │   │   ├── nfcReport.controller.js
 │   │   │   ├── productionReport.controller.js
 │   │   │   ├── stageHistoryReport.controller.js
@@ -221,7 +220,6 @@ WRL-Tool-Report-Dashboard/
 │   │   │   ├── dispatchHold.controller.js
 │   │   │   ├── estReport.controller.js
 │   │   │   ├── fpa.controller.js
-│   │   │   ├── fpaDefectReport.controller.js
 │   │   │   ├── fpaReport.controller.js
 │   │   │   ├── gasCharging.controller.js
 │   │   │   ├── holdCabinetDetails.controller.js
@@ -312,7 +310,6 @@ WRL-Tool-Report-Dashboard/
 │   │   │   ├── logo.png
 │   │   ├── components/
 │   │   │   ├── graphs/
-│   │   │   │   └── FpaReportsBarGraph.jsx
 │   │   │   ├── lineHourly/
 │   │   │   │   └── FinalLine
 │   │   │   │   │   └── FinalCategoryCount.jsx
@@ -402,7 +399,6 @@ WRL-Tool-Report-Dashboard/
 │   │   │   │   └── DispatchHold.jsx
 │   │   │   │   └── ESTReport.jsx
 │   │   │   │   └── FPA.jsx
-│   │   │   │   └── FPADefectReport.jsx
 │   │   │   │   └── FPAReports.jsx
 │   │   │   │   └── GasChargingReport.jsx
 │   │   │   │   └── HoldCabinetDetails.jsx

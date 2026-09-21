@@ -10,10 +10,6 @@ import {
   getLatestWIPCaptures,
 } from "../controllers/production/wipcapture.controller.js";
 import {
-  getModelName,
-  modelNameUpdate,
-} from "../controllers/production/modelNameUpdate.controller.js";
-import {
   getHourlyCategoryCount,
   getHourlyModelCount,
   getHourlySummary,
@@ -119,10 +115,6 @@ router.get("/month-fgdata", authenticate, fetchQuickFiltersData);
 // -----------------> WIP Capture
 router.post("/wip-capture", authenticate, captureWIP);
 router.get("/wip-latest", authenticate, getLatestWIPCaptures);
-
-// -----------------> Model Name Update
-router.get("/get-model-name", authenticate, getModelName);
-router.put("/update-model-name", authenticate, modelNameUpdate);
 
 // -----------------> Hourly Report
 router.get("/hourly-summary", authenticate, getHourlySummary);

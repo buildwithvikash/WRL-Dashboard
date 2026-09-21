@@ -11,7 +11,7 @@ const CONTROLLERS = ["FANUC","Siemens","Mitsubishi","Allen Bradley","Beckhoff","
 const DEPARTMENTS  = ["PART PROCESS"];
 const LINES        = ["FREEZER LINE","VISI COOLER LINE","SUS LINE"];
 
-const INIT = { machineName:"", machineCode:"", ipAddress:"", controllerType:"FANUC", apiEndpoint:"", department:"", lineName:"", plantLocation:"Plant A", status:true, connected:false };
+const INIT = { machineName:"", machineCode:"", ipAddress:"", controllerType:"FANUC", apiEndpoint:"", department:"", lineName:"", plantLocation:"Plant A", status:true, connected:false, powerRunKw:"", powerStandbyKw:"" };
 
 const ConnBadge = ({ ok }) =>
   ok ? (
@@ -79,7 +79,10 @@ const MachineConfig = () => {
   ), [data, search]);
 
   const openAdd  = () => { setForm(INIT); setModal({ open:true, mode:"add" }); };
-  const openEdit = (row) => { setForm({ ...row }); setModal({ open:true, mode:"edit", row }); };
+  const openEdit = (row) => {
+    setForm({ ...row, powerRunKw: row.powerRunKw ?? "", powerStandbyKw: row.powerStandbyKw ?? "" });
+    setModal({ open:true, mode:"edit", row });
+  };
   const closeModal = () => setModal({ open:false });
 
   const handleSave = async () => {
@@ -218,6 +221,16 @@ const MachineConfig = () => {
             <Field label="Plant Location">
               <input value={form.plantLocation} onChange={sf("plantLocation")} placeholder="e.g. Plant A" className={inputCls} />
             </Field>
+            <div className="col-span-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">Power profile — for Energy report</p>
+              <p className="text-[11px] text-amber-700 mt-0.5 mb-3">
+                Used to calculate kWh from production events (no energy meter is connected). Every recorded stop counts as standby, since the machine only reports while it is powered on. Leave blank to use the default AMADA AE-NT figures (4.5 / 0.8 kW).
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Running (kW)"><input type="number" min="0" step="0.1" value={form.powerRunKw ?? ""} onChange={sf("powerRunKw")} placeholder="4.5" className={inputCls} /></Field>
+                <Field label="Standby (kW)"><input type="number" min="0" step="0.1" value={form.powerStandbyKw ?? ""} onChange={sf("powerStandbyKw")} placeholder="0.8" className={inputCls} /></Field>
+              </div>
+            </div>
             <div className="col-span-2 flex gap-6 p-3 rounded-lg bg-slate-50 border border-slate-200">
               {[["status","Machine Active"],["connected","Mark as Connected"]].map(([k, label]) => (
                 <label key={k} className="flex items-center gap-2 cursor-pointer">

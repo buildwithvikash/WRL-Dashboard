@@ -1124,5 +1124,51 @@ export const runMigrations = async (pool3) => {
     END
   `);
 
+  // ── Machines: power profile for the Part Process "Energy (Estimated)" report ─
+  // No energy meter is wired to these machines (PartProcessEvents.Energy is 0
+  // on every row), so energy is estimated from production events: running
+  // time x PowerRunKw and every recorded stop x PowerStandbyKw (the machine
+  // only reports events while connected and powered on). Nullable — the report
+  // falls back to the AMADA AE-2510NT figures when a machine has none.
+  for (const col of [
+    { name: "PowerRunKw",     def: "DECIMAL(8,2) NULL" },
+    { name: "PowerStandbyKw", def: "DECIMAL(8,2) NULL" },
+  ]) {
+    await pool3.request().query(`
+      IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Machines')
+      AND NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'Machines' AND COLUMN_NAME = '${col.name}'
+      )
+      BEGIN
+        ALTER TABLE Machines ADD ${col.name} ${col.def};
+        PRINT 'Migration: Added ${col.name} column to Machines';
+      END
+    `);
+  }
+
+  // Seed the Amada from the manufacturer's AE-NT figures (average 4.5 kW while
+  // working, below 1 kW on standby) — only where nothing has been entered yet,
+  // so a later edit in Machine Config is never overwritten.
+  await pool3.request().query(`
+    IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Machines' AND COLUMN_NAME = 'PowerRunKw')
+    BEGIN
+      UPDATE Machines
+      SET PowerRunKw = 4.5, PowerStandbyKw = 0.8
+      WHERE MachineName LIKE '%AMADA%' AND PowerRunKw IS NULL AND PowerStandbyKw IS NULL;
+    END
+  `);
+
+  // An earlier version of this report also had a "machine off after N hours"
+  // cut-off. It was removed (every recorded stop is standby), so drop the
+  // now-unused column — it was only ever created for this feature.
+  await pool3.request().query(`
+    IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Machines' AND COLUMN_NAME = 'PowerOffAfterHours')
+    BEGIN
+      ALTER TABLE Machines DROP COLUMN PowerOffAfterHours;
+      PRINT 'Migration: Dropped unused PowerOffAfterHours column from Machines';
+    END
+  `);
+
   console.log("Migrations completed.");
 };

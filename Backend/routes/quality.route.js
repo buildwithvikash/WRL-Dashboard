@@ -17,7 +17,6 @@ import {
   downloadDefectImage, getFpaDailyReport, getFpaMonthlyReport,
   getFpaReport, getFpaYearlyReport,
 } from "../controllers/quality/fpaReport.controller.js";
-import { getFpaDefectReport } from "../controllers/quality/fpadefectReport.controller.js";
 import {
   addLptDefect, getLptAssetDetails, getLptDefectCategory,
   getLptDefectCount, getLptDefectReport,
@@ -111,7 +110,6 @@ router.get("/fpa-report", authenticate, getFpaReport);
 router.get("/fpa-daily-report", authenticate, getFpaDailyReport);
 router.get("/fpa-monthly-report", authenticate, getFpaMonthlyReport);
 router.get("/fpa-yearly-report", authenticate, getFpaYearlyReport);
-router.get("/fpa-defect-report", authenticate, getFpaDefectReport);
 
 // LPT
 router.get("/lpt-asset-details", authenticate, getLptAssetDetails);

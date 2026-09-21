@@ -137,6 +137,37 @@ OEE% = A × P × Q
 **Loss (min)** = `downtimeMins + idleMins + changeoverOverrunMins`.
 **Energy (Wh)** = `qty × cycleSecs × 5kW ÷ 3600` (fixed `MACHINE_POWER_KW = 5` assumption), computed separately for ideal (`planQty × DefinedCT`) and actual (`actualQty × avgCycleSecs`).
 
+> **Energy (Estimated) page** (`/part-process/energy-estimate`) uses a separate, richer model — see §4a. The Production Report's fixed 5 kW figure above is the manufacturer's *maximum*; it has not been changed.
+
+### 4a. Energy (Estimated) — `energy.controller.js`
+
+No energy meter is connected to the Part Process machines (`PartProcessEvents.Energy` is 0 on every row), so energy is **estimated** per machine from `PartProcessEvents`:
+
+```
+running kWh = Σ Duration of EventType='Production'                × PowerRunKw
+standby kWh = Σ Duration of Downtime / Shift Break events (all)   × PowerStandbyKw
+total kWh   = running + standby
+```
+
+Every recorded stop counts as standby: the machine only reports events while it is connected and powered on, and when it is offline or has a power cut there are no events, so that time is not counted. **Time filter:** same rule as the Production Report — an event counts when `EventDate + StartTime` falls in `[Start, End)` (production day 08:00 → 08:00), so component counts match that page for the same range. E.g. Amada 01-08 08:00 → 10-08 08:00: 5,429 strokes / 9,477 components on both.
+
+Power profile lives on `Machines` (`PowerRunKw`, `PowerStandbyKw`, edited in Master Config → Machine Config). Defaults / Amada seed = manufacturer's AMADA AE-NT figures: **4.5 kW** average while working, **< 1 kW** standby (0.8 used), **5 kW** maximum. Unparseable durations (e.g. negative clock glitches) count as 0. Results are computed on request and never written to `PartProcessEvents.Energy` (the FactoryOS sync overwrites that column). Amada, Aug 2026: 203.1 h running + 396.7 h standby → 1,231 kWh.
+
+**Linked to actual production** (same building blocks as §2–§4):
+
+```
+components   = Σ PartsQty × NoOfSheet × ActualComponentsPerSheet      // §2.3, part resolved via §2.4
+rejects      = Σ PartProcessQualityLog.RejectedQty (matched by SAP code, capped at components)
+good comp.   = components − rejects
+kWh/comp.    = total kWh ÷ components         kWh/good comp. = total kWh ÷ good components
+part kWh     = own running kWh  +  asset standby kWh × (part run time ÷ asset run time)   // standby = shared overhead
+reject kWh   = kWh/comp. × rejects            // energy spent on parts that were scrapped
+utilisation  = running time ÷ (running + standby time)                                   // powered-on time only
+changeovers  = detectChangeovers() per shift (§2.2), gaps under 1 min ignored;  kWh = minutes × standby kW
+standby split= short stops (< 10 min) · idle (≥ 10 min) · scheduled breaks                 // §2.1
+```
+Amada, Aug 2026: 22,320 components (11,067 strokes), 41 rejects → 0.044 kWh/component; 99 changeovers ≈ 1,186 min (~16 kWh of standby).
+
 ---
 
 ## 5. Quality Report (`QualityReport.jsx`)

@@ -26,6 +26,7 @@ import {
   setFpaQuickFilter,
   resetFpaFilters,
   openModelModal,
+  openDefectModal,
 } from "../../redux/slices/fpaReportSlice.js";
 import {
   getTodayRange,
@@ -298,6 +299,7 @@ const FpaHistory = () => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [fgSerial, setFgSerial] = useState("");
   const [sortField, setSortField] = useState("ModelCount");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -529,6 +531,7 @@ const FpaHistory = () => {
     setStartTime("");
     setEndTime("");
     setSearchTerm("");
+    setFgSerial("");
     setPage(1);
   };
 
@@ -552,6 +555,17 @@ const FpaHistory = () => {
 
   const handleOpenModelModal = (item) => {
     dispatch(openModelModal(item));
+  };
+
+  // Direct FG lookup — opens the same defect-detail modal the model drill-down
+  // uses, independent of the date range above.
+  const handleFgLookup = () => {
+    const serial = fgSerial.trim();
+    if (!serial) {
+      toast.error("Enter an FG serial number.");
+      return;
+    }
+    dispatch(openDefectModal(serial));
   };
 
   const isLoading = historyLoading || historyFetching;
@@ -763,6 +777,36 @@ const FpaHistory = () => {
                 <RotateCcw className="w-4 h-4" />
               </button>
             </div>
+          </div>
+
+          {/* ── Find a single FG by serial number ── */}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-end gap-3">
+            <div className="min-w-[240px] flex-1 max-w-md">
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                Find by FG Serial No.
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={fgSerial}
+                  onChange={(e) => setFgSerial(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleFgLookup()}
+                  placeholder="Enter FG serial number…"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-700 font-mono placeholder:font-sans placeholder-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleFgLookup}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-white shadow-sm transition-all cursor-pointer"
+            >
+              <Search className="w-4 h-4" />
+              Find FG
+            </button>
+            <p className="text-[11px] text-slate-400 pb-2">
+              Shows that FG&apos;s FPA defects directly — not limited by the date range above.
+            </p>
           </div>
         </div>
 
