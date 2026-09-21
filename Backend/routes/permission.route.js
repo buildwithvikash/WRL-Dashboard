@@ -5,6 +5,8 @@ import {
   updateRolePermissions,
   updateRolePermissionsByRole,
   getAllRoles,
+  getHiddenPages,
+  setPageHidden,
 } from "../controllers/permission.controller.js";
 
 import { authenticate } from "../middlewares/auth.js";
@@ -14,6 +16,10 @@ const router = express.Router();
 
 // Get logged-in user's permissions
 router.get("/me", authenticate, getMyPermissions);
+
+// Temporarily hide pages (menu + route) — must stay above "/:role"
+router.get("/hidden-pages", authenticate, requireSuperAdmin, getHiddenPages);
+router.put("/hidden-pages", authenticate, requireSuperAdmin, setPageHidden);
 
 // Get permissions for a specific role (Super Admin only)
 router.get("/:role", authenticate, requireSuperAdmin, getRolePermissions);

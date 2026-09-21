@@ -6,12 +6,23 @@ export const permissionApi = createApi({
     baseUrl: "/api/v1",
     credentials: "include",
   }),
-  tagTypes: ["Permissions"],
+  tagTypes: ["Permissions", "HiddenPages"],
   endpoints: (builder) => ({
 
     getMyPermissions: builder.query({
       query: () => "/permission/me",
       providesTags: ["Permissions"],
+    }),
+
+    getHiddenPages: builder.query({
+      query: () => "/permission/hidden-pages",
+      transformResponse: (res) => res.data ?? [],
+      providesTags: ["HiddenPages"],
+    }),
+
+    setPageHidden: builder.mutation({
+      query: (body) => ({ url: "/permission/hidden-pages", method: "PUT", body }),
+      invalidatesTags: ["HiddenPages", "Permissions"],
     }),
 
     updateRolePermissions: builder.mutation({
@@ -29,4 +40,6 @@ export const permissionApi = createApi({
 export const {
   useGetMyPermissionsQuery,
   useUpdateRolePermissionsMutation,
+  useGetHiddenPagesQuery,
+  useSetPageHiddenMutation,
 } = permissionApi;

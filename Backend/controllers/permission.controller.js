@@ -56,6 +56,63 @@ const applyPermissions = async (pool, role, rows, updatedBy = "system") => {
 };
 
 /* =========================================================
+   HIDDEN PAGES — global, temporary "hide from menu + block route" switch.
+   Stored as a JSON array of "sectionKey|path" in AppSettings('hiddenPages').
+   Super Admin is never affected, so they can always un-hide.
+========================================================= */
+const HIDDEN_KEY = "hiddenPages";
+
+const readHiddenPages = async (pool) => {
+  const r = await pool
+    .request()
+    .input("k", sql.NVarChar(100), HIDDEN_KEY)
+    .query(`SELECT Value FROM AppSettings WHERE SettingKey = @k`);
+  try {
+    const list = JSON.parse(r.recordset[0]?.Value || "[]");
+    return Array.isArray(list) ? list.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+export const getHiddenPages = tryCatch(async (req, res) => {
+  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  try {
+    res.json({ success: true, data: await readHiddenPages(pool) });
+  } finally {
+    await pool.close();
+  }
+});
+
+export const setPageHidden = tryCatch(async (req, res) => {
+  const { sectionKey, path, hidden } = req.body || {};
+  if (!sectionKey || !path || typeof hidden !== "boolean") {
+    throw new AppError("sectionKey, path and hidden (boolean) are required", 400);
+  }
+  const id = `${sectionKey}|${path}`;
+  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  try {
+    const set = new Set(await readHiddenPages(pool));
+    if (hidden) set.add(id);
+    else set.delete(id);
+    await pool
+      .request()
+      .input("k", sql.NVarChar(100), HIDDEN_KEY)
+      .input("v", sql.NVarChar(sql.MAX), JSON.stringify([...set]))
+      .input("by", sql.NVarChar(100), String(req.user?.name || req.user?.usercode || "system"))
+      .query(`
+        MERGE AppSettings AS t
+        USING (SELECT @k AS SettingKey) AS s ON t.SettingKey = s.SettingKey
+        WHEN MATCHED THEN UPDATE SET Value = @v, UpdatedBy = @by, UpdatedAt = GETDATE()
+        WHEN NOT MATCHED THEN INSERT (SettingKey, Value, UpdatedBy, UpdatedAt) VALUES (@k, @v, @by, GETDATE());
+      `);
+    res.json({ success: true, data: [...set] });
+  } finally {
+    await pool.close();
+  }
+});
+
+/* =========================================================
    GET LOGGED-IN USER PERMISSIONS
    GET /permissions/me
 ========================================================= */
@@ -66,6 +123,7 @@ export const getMyPermissions = tryCatch(async (req, res) => {
 
   const pool = await new sql.ConnectionPool(dbConfig3).connect();
   try {
+    const hidden = new Set(await readHiddenPages(pool));
     const result = await pool
       .request()
       .input("role", sql.NVarChar(100), role)
@@ -79,7 +137,7 @@ export const getMyPermissions = tryCatch(async (req, res) => {
     const permissionMap = {};
     result.recordset.forEach(({ SectionKey, Path, CanAccess }) => {
       if (!permissionMap[SectionKey]) permissionMap[SectionKey] = {};
-      permissionMap[SectionKey][Path] = Boolean(CanAccess);
+      permissionMap[SectionKey][Path] = Boolean(CanAccess) && !hidden.has(`${SectionKey}|${Path}`);
     });
 
     res.json({ success: true, role, permissions: permissionMap });
