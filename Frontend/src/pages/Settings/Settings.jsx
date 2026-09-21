@@ -20,7 +20,14 @@ import {
   Search,
   Shield,
   Loader2,
+  EyeOff,
+  Eye,
 } from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  useGetHiddenPagesQuery,
+  useSetPageHiddenMutation,
+} from "../../redux/api/permissionApi.js";
 import { ROUTE_CONFIG, ROLES } from "../../config/routes.config.js";
 import {
   fetchRolePermissions,
@@ -74,6 +81,22 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [roleSearch, setRoleSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── Hidden pages (global, applies to every non-super-admin) ────────────────
+  const { data: hiddenList = [] } = useGetHiddenPagesQuery(undefined, {
+    skip: userRole !== SUPER_ADMIN_ROLE,
+  });
+  const [setPageHidden] = useSetPageHiddenMutation();
+  const isHidden = (sectionKey, path) => hiddenList.includes(`${sectionKey}|${path}`);
+  const toggleHidden = async (sectionKey, path, label) => {
+    const hide = !isHidden(sectionKey, path);
+    try {
+      await setPageHidden({ sectionKey, path, hidden: hide }).unwrap();
+      toast.success(hide ? `"${label}" hidden from everyone, including Super Admin.` : `"${label}" is visible again.`);
+    } catch (err) {
+      toast.error(err?.data?.message || "Failed to update page visibility.");
+    }
+  };
 
   // ── Load permissions from backend ──────────────────────────────────────────
   useEffect(() => {
@@ -226,6 +249,11 @@ export default function Settings() {
         </div>
 
         <div className="flex items-center gap-2">
+          {hiddenList.length > 0 && (
+            <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+              <EyeOff className="w-3 h-3" /> {hiddenList.length} page{hiddenList.length > 1 ? "s" : ""} hidden
+            </span>
+          )}
           <span
             className="px-3 py-1 rounded-full text-xs font-bold"
             style={{ background: coverageColor + "20", color: coverageColor }}
@@ -536,11 +564,14 @@ export default function Settings() {
                         const ItemCard = ({ item }) => {
                           const checked =
                             permissions[section.key]?.[item.path] === true;
+                          const hidden = isHidden(section.key, item.path);
                           return (
                             <label
                               key={item.path}
                               className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer border-2 transition-all duration-150 ${
-                                checked
+                                hidden
+                                  ? "bg-amber-50 border-amber-300"
+                                  : checked
                                   ? "bg-indigo-50 border-indigo-200"
                                   : "bg-slate-50 border-transparent hover:border-gray-200 hover:bg-white"
                               }`}
@@ -558,16 +589,32 @@ export default function Settings() {
                               ) : (
                                 <Square className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
                               )}
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <p
-                                  className={`text-xs font-semibold truncate ${checked ? "text-indigo-800" : "text-gray-600"}`}
+                                  className={`text-xs font-semibold truncate ${checked ? "text-indigo-800" : "text-gray-600"} ${hidden ? "line-through opacity-60" : ""}`}
                                 >
                                   {item.label}
                                 </p>
                                 <p className="text-[10px] text-gray-400 font-mono truncate mt-0.5">
-                                  {item.path}
+                                  {hidden ? "Hidden from users" : item.path}
                                 </p>
                               </div>
+                              <button
+                                type="button"
+                                title={hidden ? "Show this page again" : "Temporarily hide this page from everyone (incl. Super Admin)"}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleHidden(section.key, item.path, item.label);
+                                }}
+                                className={`shrink-0 p-1 rounded-md transition ${
+                                  hidden
+                                    ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                    : "text-gray-300 hover:text-gray-600 hover:bg-gray-100"
+                                }`}
+                              >
+                                {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
                             </label>
                           );
                         };

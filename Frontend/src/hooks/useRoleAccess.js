@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import { ROUTE_CONFIG, ROLES } from "../config/routes.config.js";
-import { useGetMyPermissionsQuery } from "../redux/api/permissionApi";
+import { useGetMyPermissionsQuery, useGetHiddenPagesQuery } from "../redux/api/permissionApi";
 
 const SUPER_ADMIN_ROLE = ROLES.SUPER_ADMIN;
 
@@ -14,7 +14,18 @@ export const useRoleAccess = () => {
   // — no need for a one-off 401 handler on this specific query anymore.
   const { data } = useGetMyPermissionsQuery(undefined, {
     skip: !user || userRole === SUPER_ADMIN_ROLE,
+    // Pick up pages the Super Admin hides/unhides without needing a re-login.
+    pollingInterval: 60000,
+    refetchOnFocus: true,
   });
+
+  // Super Admin's permissions are implicit, so the hidden list is applied here
+  // (other roles get hidden pages stripped server-side in /permission/me).
+  const { data: hiddenList } = useGetHiddenPagesQuery(undefined, {
+    skip: !user || userRole !== SUPER_ADMIN_ROLE,
+    pollingInterval: 60000,
+  });
+  const hiddenSet = useMemo(() => new Set(hiddenList ?? []), [hiddenList]);
 
   // Backend returns permissions as an object: { [SectionKey]: { [Path]: boolean } }
   const permissionMap = useMemo(() => {
@@ -26,7 +37,7 @@ export const useRoleAccess = () => {
   }, [data, userRole]);
 
   const canAccess = (sectionKey, path) => {
-    if (userRole === SUPER_ADMIN_ROLE) return true;
+    if (userRole === SUPER_ADMIN_ROLE) return !hiddenSet.has(`${sectionKey}|${path}`);
     return permissionMap?.[sectionKey]?.[path] || false;
   };
 
@@ -40,7 +51,7 @@ export const useRoleAccess = () => {
 
       return { ...section, items };
     }).filter(Boolean);
-  }, [permissionMap, userRole]);
+  }, [permissionMap, userRole, hiddenSet]);
 
   const accessibleRoutes = useMemo(() => {
     const routes = [];
@@ -57,7 +68,7 @@ export const useRoleAccess = () => {
     });
 
     return routes;
-  }, [permissionMap, userRole]);
+  }, [permissionMap, userRole, hiddenSet]);
 
   return {
     userRole,
