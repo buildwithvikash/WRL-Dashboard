@@ -13,7 +13,7 @@ const isDeadlock = (err) => err?.number === 1205 ||
 
 // `attempt` must build a FRESH pool.request() on every call — an mssql
 // Request object can't be reused after it's been executed once.
-const queryWithRetry = async (attempt) => {
+export const queryWithRetry = async (attempt) => {
   for (let i = 1; i <= MAX_DEADLOCK_RETRIES; i++) {
     try {
       return await attempt();

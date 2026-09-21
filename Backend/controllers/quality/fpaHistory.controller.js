@@ -241,7 +241,11 @@ export const getFpaDefectDetails = tryCatch(async (req, res) => {
         Category,
         AddDefect,
         Remark,
-        DefectImage
+        DefectImage,
+        Model,
+        Date,
+        Shift,
+        Country
     FROM FPAReport
     WHERE FGSRNo = @fgsrNo
     -- Sort: critical first, then major, then minor
@@ -260,7 +264,7 @@ export const getFpaDefectDetails = tryCatch(async (req, res) => {
   try {
     const result = await pool
       .request()
-      .input("fgsrNo", sql.VarChar, fgsrNo)
+      .input("fgsrNo", sql.VarChar, String(fgsrNo).trim())
       .query(query);
 
     if (result.recordset.length === 0) {

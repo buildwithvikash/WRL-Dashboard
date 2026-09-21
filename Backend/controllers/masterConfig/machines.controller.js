@@ -2,14 +2,34 @@
 import sql from "mssql";
 import { strOrNull, toBit } from "./helpers.js";
 
+// Power-profile fields feed the Part Process "Energy (Estimated)" report.
+// Blank means "use the report's default" (stored as NULL).
+const numOrNull = (v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
 // ── Machines ─────────────────────────────────────────────────────────────────
 const MACHINE_SELECT = `
   SELECT
     Id AS id, MachineName AS machineName, MachineCode AS machineCode, IpAddress AS ipAddress,
     ControllerType AS controllerType, ApiEndpoint AS apiEndpoint, Department AS department,
     LineName AS lineName, PlantLocation AS plantLocation, ImagePath AS imagePath,
-    Connected AS connected, Status AS status
+    Connected AS connected, Status AS status,
+    PowerRunKw AS powerRunKw, PowerStandbyKw AS powerStandbyKw
   FROM Machines`;
+
+const MACHINE_OUTPUT = `
+  INSERTED.Id AS id, INSERTED.MachineName AS machineName, INSERTED.MachineCode AS machineCode, INSERTED.IpAddress AS ipAddress,
+  INSERTED.ControllerType AS controllerType, INSERTED.ApiEndpoint AS apiEndpoint, INSERTED.Department AS department,
+  INSERTED.LineName AS lineName, INSERTED.PlantLocation AS plantLocation, INSERTED.ImagePath AS imagePath,
+  INSERTED.Connected AS connected, INSERTED.Status AS status,
+  INSERTED.PowerRunKw AS powerRunKw, INSERTED.PowerStandbyKw AS powerStandbyKw`;
+
+const powerInputs = (request, m) => request
+  .input("powerRunKw",         sql.Decimal(8, 2), numOrNull(m.powerRunKw))
+  .input("powerStandbyKw",     sql.Decimal(8, 2), numOrNull(m.powerStandbyKw));
 
 export const getMachines = async (req, res) => {
   try {
@@ -25,7 +45,7 @@ export const createMachine = async (req, res) => {
     const m = req.body;
     if (!m.machineName || !m.machineCode) return res.status(400).json({ success: false, message: "machineName and machineCode are required" });
 
-    const result = await global.pool3.request()
+    const request = global.pool3.request()
       .input("machineName",    sql.NVarChar(200), m.machineName)
       .input("machineCode",    sql.NVarChar(50),  m.machineCode)
       .input("ipAddress",      sql.NVarChar(50),  strOrNull(m.ipAddress))
@@ -35,15 +55,15 @@ export const createMachine = async (req, res) => {
       .input("lineName",       sql.NVarChar(100), strOrNull(m.lineName))
       .input("plantLocation",  sql.NVarChar(100), strOrNull(m.plantLocation))
       .input("connected",      sql.Bit, toBit(m.connected))
-      .input("status",         sql.Bit, toBit(m.status ?? true))
-      .query(`
-        INSERT INTO Machines (MachineName, MachineCode, IpAddress, ControllerType, ApiEndpoint, Department, LineName, PlantLocation, Connected, Status)
-        OUTPUT
-          INSERTED.Id AS id, INSERTED.MachineName AS machineName, INSERTED.MachineCode AS machineCode, INSERTED.IpAddress AS ipAddress,
-          INSERTED.ControllerType AS controllerType, INSERTED.ApiEndpoint AS apiEndpoint, INSERTED.Department AS department,
-          INSERTED.LineName AS lineName, INSERTED.PlantLocation AS plantLocation, INSERTED.ImagePath AS imagePath,
-          INSERTED.Connected AS connected, INSERTED.Status AS status
-        VALUES (@machineName, @machineCode, @ipAddress, @controllerType, @apiEndpoint, @department, @lineName, @plantLocation, @connected, @status)
+      .input("status",         sql.Bit, toBit(m.status ?? true));
+    powerInputs(request, m);
+
+    const result = await request.query(`
+        INSERT INTO Machines (MachineName, MachineCode, IpAddress, ControllerType, ApiEndpoint, Department, LineName, PlantLocation, Connected, Status,
+                              PowerRunKw, PowerStandbyKw)
+        OUTPUT ${MACHINE_OUTPUT}
+        VALUES (@machineName, @machineCode, @ipAddress, @controllerType, @apiEndpoint, @department, @lineName, @plantLocation, @connected, @status,
+                @powerRunKw, @powerStandbyKw)
       `);
 
     res.json({ success: true, data: result.recordset[0] });
@@ -59,7 +79,7 @@ export const updateMachine = async (req, res) => {
   try {
     const { id } = req.params;
     const m = req.body;
-    const result = await global.pool3.request()
+    const request = global.pool3.request()
       .input("id",             sql.Int, id)
       .input("machineName",    sql.NVarChar(200), m.machineName)
       .input("machineCode",    sql.NVarChar(50),  m.machineCode)
@@ -70,18 +90,17 @@ export const updateMachine = async (req, res) => {
       .input("lineName",       sql.NVarChar(100), strOrNull(m.lineName))
       .input("plantLocation",  sql.NVarChar(100), strOrNull(m.plantLocation))
       .input("connected",      sql.Bit, toBit(m.connected))
-      .input("status",         sql.Bit, toBit(m.status ?? true))
-      .query(`
+      .input("status",         sql.Bit, toBit(m.status ?? true));
+    powerInputs(request, m);
+
+    const result = await request.query(`
         UPDATE Machines SET
           MachineName = @machineName, MachineCode = @machineCode, IpAddress = @ipAddress,
           ControllerType = @controllerType, ApiEndpoint = @apiEndpoint, Department = @department,
           LineName = @lineName, PlantLocation = @plantLocation, Connected = @connected, Status = @status,
+          PowerRunKw = @powerRunKw, PowerStandbyKw = @powerStandbyKw,
           UpdatedAt = GETDATE()
-        OUTPUT
-          INSERTED.Id AS id, INSERTED.MachineName AS machineName, INSERTED.MachineCode AS machineCode, INSERTED.IpAddress AS ipAddress,
-          INSERTED.ControllerType AS controllerType, INSERTED.ApiEndpoint AS apiEndpoint, INSERTED.Department AS department,
-          INSERTED.LineName AS lineName, INSERTED.PlantLocation AS plantLocation, INSERTED.ImagePath AS imagePath,
-          INSERTED.Connected AS connected, INSERTED.Status AS status
+        OUTPUT ${MACHINE_OUTPUT}
         WHERE Id = @id
       `);
 
@@ -116,11 +135,7 @@ export const uploadMachineImage = async (req, res) => {
       .input("imagePath", sql.NVarChar(300), imagePath)
       .query(`
         UPDATE Machines SET ImagePath = @imagePath, UpdatedAt = GETDATE()
-        OUTPUT
-          INSERTED.Id AS id, INSERTED.MachineName AS machineName, INSERTED.MachineCode AS machineCode, INSERTED.IpAddress AS ipAddress,
-          INSERTED.ControllerType AS controllerType, INSERTED.ApiEndpoint AS apiEndpoint, INSERTED.Department AS department,
-          INSERTED.LineName AS lineName, INSERTED.PlantLocation AS plantLocation, INSERTED.ImagePath AS imagePath,
-          INSERTED.Connected AS connected, INSERTED.Status AS status
+        OUTPUT ${MACHINE_OUTPUT}
         WHERE Id = @id
       `);
 

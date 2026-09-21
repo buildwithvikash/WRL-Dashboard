@@ -137,6 +137,14 @@ const FpaDefectDetailModal = () => {
               <h2 className="text-sm font-black text-gray-900">
                 FGSRNo: <span className="font-mono text-blue-700">{selectedFGSRNo}</span>
               </h2>
+              {defects[0] && (
+                <p className="text-[11px] text-gray-500 mt-0.5 flex flex-wrap gap-x-3">
+                  {defects[0].Model && <span className="font-semibold text-gray-700">{defects[0].Model}</span>}
+                  {defects[0].Date && <span>{String(defects[0].Date).slice(0, 10)}</span>}
+                  {defects[0].Shift && <span>Shift {defects[0].Shift}</span>}
+                  {defects[0].Country && <span>{defects[0].Country}</span>}
+                </p>
+              )}
             </div>
             <button onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition-colors">
@@ -176,7 +184,7 @@ const FpaDefectDetailModal = () => {
             {!loading && defects.length === 0 && (
               <div className="py-14 text-center">
                 <HiOutlineSearch className="text-gray-300 text-5xl mx-auto mb-3" />
-                <p className="text-gray-500 font-semibold text-sm">No defect details found.</p>
+                <p className="text-gray-500 font-semibold text-sm">No FPA defect records found for this FG serial.</p>
                 <p className="text-gray-400 text-xs mt-1">FGSRNo: {selectedFGSRNo}</p>
               </div>
             )}

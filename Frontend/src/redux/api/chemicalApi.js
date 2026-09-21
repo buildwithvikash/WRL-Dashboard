@@ -30,6 +30,20 @@ export const chemicalApi = createApi({
     sendChemBulkStorageReportNow: builder.mutation({
       query: () => ({ url: "chemical/send-now", method: "POST" }),
     }),
+
+    // ── Reports & data ──────────────────────────────────────────────────────
+    getChemCurrentLevels: builder.query({
+      query: () => "chemical/tanks/current",
+      transformResponse: (res) => res.data ?? [],
+    }),
+    getChemDailyReport: builder.query({
+      query: ({ startDate, endDate }) => ({ url: "chemical/reports/daily", params: { startDate, endDate } }),
+      transformResponse: (res) => res.data ?? { rows: [], summary: {} },
+    }),
+    getChemReadings: builder.query({
+      query: (params) => ({ url: "chemical/readings", params }),
+      transformResponse: (res) => ({ rows: res.data ?? [], meta: res.meta ?? {} }),
+    }),
   }),
 });
 
@@ -40,4 +54,7 @@ export const {
   useDeleteChemBulkStorageRecipientMutation,
   useTestChemBulkStorageRecipientMutation,
   useSendChemBulkStorageReportNowMutation,
+  useGetChemCurrentLevelsQuery,
+  useGetChemDailyReportQuery,
+  useGetChemReadingsQuery,
 } = chemicalApi;

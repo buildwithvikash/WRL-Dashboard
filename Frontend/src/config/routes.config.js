@@ -47,9 +47,6 @@ const ConsolidatedReport = lazy(
   () =>
     import("../pages/Production/Reports/ConsolidatedReport/ConsolidatedReport"),
 );
-const ModelNameUpdate = lazy(
-  () => import("../pages/Production/Operations/ModelNameUpdate"),
-);
 const NFCReport = lazy(() => import("../pages/Production/Reports/NFCReport"));
 const TotalProduction = lazy(
   () => import("../pages/Production/Reports/TotalProduction"),
@@ -67,7 +64,6 @@ const CPTReport = lazy(() => import("../pages/Quality/CPTReport"));
 const FPA = lazy(() => import("../pages/Quality/FPA"));
 const FPAReports = lazy(() => import("../pages/Quality/FPAReports"));
 const FPAHistory = lazy(() => import("../pages/Quality/FPAHistory"));
-const FPADefectReport = lazy(() => import("../pages/Quality/FPADefectReport"));
 const LPT = lazy(() => import("../pages/Quality/LPT"));
 const LPTReport = lazy(() => import("../pages/Quality/LPTReport"));
 const MassFlowReport = lazy(() => import("../pages/Quality/MassFlowReport"));
@@ -239,11 +235,20 @@ const FactoryOsSyncLog = lazy(
 const PartProcessOEEReport = lazy(
   () => import("../pages/IOT/PartProcess/OEEReport"),
 );
+const PartProcessEnergyEstimate = lazy(
+  () => import("../pages/IOT/PartProcess/EnergyEstimate"),
+);
 
 // ── Vision Report ─────────────────────────────────────────────────────────
 const VisionReport = lazy(() => import("../pages/VisionReport/VisionReport"));
 
 // ── Chemical ─────────────────────────────────────────────────────────────
+const ChemBulkStorageReport = lazy(
+  () => import("../pages/Chemical/ChemBulkStorageReport"),
+);
+const ChemTankData = lazy(
+  () => import("../pages/Chemical/ChemTankData"),
+);
 const ChemBulkStorageMailConfig = lazy(
   () => import("../pages/Chemical/ChemBulkStorageMailConfig"),
 );
@@ -354,12 +359,6 @@ export const ROUTE_CONFIG = [
         path: "/production/wip-capture",
         label: "WIP Capture",
         component: WIPCapture,
-        group: "operations",
-      },
-      {
-        path: "/production/model-name-update",
-        label: "Model Name Update",
-        component: ModelNameUpdate,
         group: "operations",
       },
       {
@@ -513,6 +512,11 @@ export const ROUTE_CONFIG = [
         component: PartProcessOEEReport,
       },
       {
+        path: "/part-process/energy-estimate",
+        label: "Energy",
+        component: PartProcessEnergyEstimate,
+      },
+      {
         path: "/part-process/factory-monitor",
         label: "Factory Monitor",
         component: FactoryMonitor,
@@ -616,12 +620,6 @@ export const ROUTE_CONFIG = [
         path: "/quality/fpa-history",
         label: "FPA History",
         component: FPAHistory,
-        group: "fpa",
-      },
-      {
-        path: "/quality/fpa-defect-report",
-        label: "FPA Defect Report",
-        component: FPADefectReport,
         group: "fpa",
       },
       {
@@ -899,11 +897,11 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Compliance ───────────────────────────────────────────────────────────
+  // ── Calibration Management (route key/base path stay "compliance") ────────
   {
     key: "compliance",
     icon: SlidersHorizontal,
-    label: "Compliance",
+    label: "Calibration Management",
     basePath: "/compliance",
     items: [
       {
@@ -1005,6 +1003,16 @@ export const ROUTE_CONFIG = [
     label: "Chemical",
     basePath: "/chemical",
     items: [
+      {
+        path: "/chemical/bulk-storage-report",
+        label: "Bulk Storage Report",
+        component: ChemBulkStorageReport,
+      },
+      {
+        path: "/chemical/tank-data",
+        label: "Tank Data",
+        component: ChemTankData,
+      },
       {
         path: "/chemical/bulk-storage-mail-config",
         label: "Bulk Storage Mail Config",
