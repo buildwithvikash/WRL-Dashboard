@@ -77,12 +77,16 @@ import {
 import {
   getFpaByModel, getFpaDefectDetails, getFpaHistory,
 } from "../controllers/quality/fpaHistory.controller.js";
+import { getBrazingReport } from "../controllers/quality/brazingReport.controller.js";
 
 const router = express.Router();
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CPT
 router.get("/cpt-report", authenticate, getCPTReport);
+
+// Brazing
+router.get("/brazing-report", authenticate, getBrazingReport);
 
 // FPA
 router.get("/fpa-count", authenticate, getFpaCount);
