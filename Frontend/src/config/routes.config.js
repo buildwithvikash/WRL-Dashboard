@@ -61,6 +61,7 @@ const GasChargingReport = lazy(
 );
 const ESTReport = lazy(() => import("../pages/Quality/ESTReport"));
 const CPTReport = lazy(() => import("../pages/Quality/CPTReport"));
+const BrazingReport = lazy(() => import("../pages/Quality/BrazingReport"));
 const FPA = lazy(() => import("../pages/Quality/FPA"));
 const FPAReports = lazy(() => import("../pages/Quality/FPAReports"));
 const FPAHistory = lazy(() => import("../pages/Quality/FPAHistory"));
@@ -570,6 +571,12 @@ export const ROUTE_CONFIG = [
         path: "/quality/cpt-report",
         label: "CPT Report",
         component: CPTReport,
+        group: "general",
+      },
+      {
+        path: "/quality/brazing-report",
+        label: "Brazing Report",
+        component: BrazingReport,
         group: "general",
       },
       {
