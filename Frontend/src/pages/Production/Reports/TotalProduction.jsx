@@ -356,6 +356,19 @@ const TotalProduction = () => {
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
 
+  const productionExportData = useMemo(() => {
+    const source = selectedModelName
+      ? summaryData.filter((item) => item.Model_Name === selectedModelName)
+      : summaryData;
+    return source.map((item) => ({
+      "Model Name": item.Model_Name,
+      "FG Serial No.": item.FG_SR,
+      "Asset Tag": item.Asset_tag || "",
+      "Customer QR": item.CustomerQR || "",
+      "NFC UID": item.NFC_UID || "",
+    }));
+  }, [summaryData, selectedModelName]);
+
   const modelNameCount = useMemo(
     () => getModelNameCount(summaryData),
     [summaryData],
@@ -553,13 +566,21 @@ const TotalProduction = () => {
                 </span>
               )}
             </div>
-            <span className="text-[11px] text-slate-400">
-              {selectedModelName
-                ? `${sortedData.length} of ${totalCount.toLocaleString()} records`
-                : totalProductionData.length > 0
-                  ? `${totalProductionData.length} records`
-                  : ""}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-slate-400">
+                {selectedModelName
+                  ? `${sortedData.length} of ${totalCount.toLocaleString()} records`
+                  : totalProductionData.length > 0
+                    ? `${totalProductionData.length} records`
+                    : ""}
+              </span>
+              {productionExportData.length > 0 && (
+                <ExportButton
+                  data={productionExportData}
+                  filename="Total_Production_Records"
+                />
+              )}
+            </div>
           </div>
 
           {/* Three-panel body */}
