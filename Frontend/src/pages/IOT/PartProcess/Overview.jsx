@@ -367,23 +367,10 @@ const PartProcessOverview = () => {
 
             {/* ── ACTIONS ── */}
             <button type="button" onClick={() => navigate("/part-process/dashboard")}
-              className="w-full h-10 flex items-center justify-center gap-2 text-[11px] font-extrabold tracking-wider text-blue-700 hover:bg-blue-50 border-b border-slate-100">
+              className="w-full h-10 flex items-center justify-center gap-2 text-[11px] font-extrabold tracking-wider text-blue-700 hover:bg-blue-50 border-b border-slate-100 cursor-pointer">
               <LayoutDashboard className="w-3.5 h-3.5" /> OPEN FULL DASHBOARD
             </button>
-            <div className="grid grid-cols-3 bg-slate-50">
-              <button type="button" onClick={() => navigate("/part-process/production-report")}
-                className="h-11 flex items-center justify-center gap-1.5 border-r border-slate-200 text-center text-[10px] font-extrabold leading-tight tracking-wider text-emerald-700 hover:bg-emerald-50">
-                <ClipboardList className="w-3.5 h-3.5" /> PRODUCTION
-              </button>
-              <button type="button" onClick={() => navigate("/part-process/quality-report")}
-                className="h-11 flex items-center justify-center gap-1.5 border-r border-slate-200 text-center text-[10px] font-extrabold leading-tight tracking-wider text-amber-600 hover:bg-amber-50">
-                <ShieldCheck className="w-3.5 h-3.5" /> QUALITY
-              </button>
-              <button type="button" onClick={() => navigate("/part-process/downtime-report")}
-                className="h-11 flex items-center justify-center gap-1.5 text-center text-[10px] font-extrabold leading-tight tracking-wider text-rose-600 hover:bg-rose-50">
-                <AlertTriangle className="w-3.5 h-3.5" /> DOWNTIME
-              </button>
-            </div>
+   
           </div>
           )}
         </div>
