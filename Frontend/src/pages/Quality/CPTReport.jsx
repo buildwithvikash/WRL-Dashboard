@@ -3,7 +3,6 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import ExportButton from "../../components/ui/ExportButton";
 import Loader from "../../components/ui/Loader";
-import Pagination from "../../components/ui/Pagination";
 import DateTimePicker from "../../components/ui/DateTimePicker";
 import { baseURL } from "../../assets/assets";
 import {
@@ -341,7 +340,6 @@ const CPTReport = () => {
               Records
             </span>
           </div>
-
         </div>
       </div>
 
@@ -646,22 +644,6 @@ const CPTReport = () => {
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination */}
-            {totalRecords > 0 && (
-              <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 shrink-0">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalRecords={totalRecords}
-                  limit={limit}
-                  onPageChange={handlePageChange}
-                  onLimitChange={handleLimitChange}
-                  isLoading={loading}
-                  compact
-                />
-              </div>
-            )}
           </div>
         )}
 

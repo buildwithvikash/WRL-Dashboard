@@ -24,8 +24,12 @@ import { ROLES } from "../../../config/routes.config";
 const fmtDate = (dateStr) => {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: true,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
   });
 };
 
@@ -48,22 +52,24 @@ const AuditApproval = () => {
   const { loadAudits, approveAudit, rejectAudit } = useAuditData();
 
   const isAdmin = [user?.role, user?.roleName].includes(ROLES.SUPER_ADMIN);
-  const isLQE   = [user?.role, user?.roleName].includes(ROLES.LINE_QUALITY_ENGINEER);
+  const isLQE = [user?.role, user?.roleName].includes(
+    ROLES.LINE_QUALITY_ENGINEER,
+  );
   const canAccess = isAdmin || isLQE;
 
-  const [audits, setAudits]         = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [audits, setAudits] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [stats, setStats]           = useState({ approved: 0, rejected: 0, draft: 0 });
+  const [stats, setStats] = useState({ approved: 0, rejected: 0, draft: 0 });
 
   // Reject modal
-  const [rejectModal, setRejectModal]       = useState({ open: false, audit: null });
-  const [rejectReason, setRejectReason]     = useState("");
+  const [rejectModal, setRejectModal] = useState({ open: false, audit: null });
+  const [rejectReason, setRejectReason] = useState("");
   // Rework modal
-  const [reworkModal, setReworkModal]       = useState({ open: false, audit: null });
-  const [reworkReason, setReworkReason]     = useState("");
-  const [actionLoading, setActionLoading]   = useState(false);
+  const [reworkModal, setReworkModal] = useState({ open: false, audit: null });
+  const [reworkReason, setReworkReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
 
   // ── Load ─────────────────────────────────────────────────────────────────────
 
@@ -71,17 +77,18 @@ const AuditApproval = () => {
     if (showRefreshToast) setRefreshing(true);
     else setLoading(true);
     try {
-      const [pendingRes, approvedRes, rejectedRes, draftRes] = await Promise.all([
-        loadAudits({ status: "submitted", limit: 100 }),
-        loadAudits({ status: "approved",  limit: 1 }),
-        loadAudits({ status: "rejected",  limit: 1 }),
-        loadAudits({ status: "draft",     limit: 1 }),
-      ]);
+      const [pendingRes, approvedRes, rejectedRes, draftRes] =
+        await Promise.all([
+          loadAudits({ status: "submitted", limit: 100 }),
+          loadAudits({ status: "approved", limit: 1 }),
+          loadAudits({ status: "rejected", limit: 1 }),
+          loadAudits({ status: "draft", limit: 1 }),
+        ]);
       setAudits(pendingRes.data || []);
       setStats({
         approved: approvedRes.totalCount || 0,
         rejected: rejectedRes.totalCount || 0,
-        draft:    draftRes.totalCount    || 0,
+        draft: draftRes.totalCount || 0,
       });
       if (showRefreshToast) toast.success("Refreshed");
     } catch (err) {
@@ -92,7 +99,9 @@ const AuditApproval = () => {
     }
   };
 
-  useEffect(() => { fetchPending(); }, []);
+  useEffect(() => {
+    fetchPending();
+  }, []);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -128,7 +137,9 @@ const AuditApproval = () => {
         approverName: user?.name || user?.userCode || user?.usercode || "LQE",
         comments: rejectReason.trim(),
       });
-      toast.success(`Audit ${rejectModal.audit.auditCode} rejected — audit failed`);
+      toast.success(
+        `Audit ${rejectModal.audit.auditCode} rejected — audit failed`,
+      );
       setAudits((prev) => prev.filter((a) => a.id !== rejectModal.audit.id));
       setRejectModal({ open: false, audit: null });
     } catch (err) {
@@ -155,7 +166,9 @@ const AuditApproval = () => {
         comments: reworkReason.trim(),
         isRework: true,
       });
-      toast.success(`Audit ${reworkModal.audit.auditCode} sent for rework — returned to quality auditor`);
+      toast.success(
+        `Audit ${reworkModal.audit.auditCode} sent for rework — returned to quality auditor`,
+      );
       setAudits((prev) => prev.filter((a) => a.id !== reworkModal.audit.id));
       setReworkModal({ open: false, audit: null });
     } catch (err) {
@@ -190,7 +203,8 @@ const AuditApproval = () => {
           <FaExclamationTriangle className="text-5xl text-amber-400 mx-auto" />
           <h2 className="text-xl font-bold text-gray-800">Access Denied</h2>
           <p className="text-gray-500 text-sm">
-            Only Line Quality Engineers and Super Admins can access the audit approval queue.
+            Only Line Quality Engineers and Super Admins can access the audit
+            approval queue.
           </p>
         </div>
       </div>
@@ -201,7 +215,6 @@ const AuditApproval = () => {
 
   return (
     <div className="h-full overflow-y-auto bg-gray-50 font-sans">
-
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10 shadow-sm">
         <div className="w-full px-6 py-3 flex items-center justify-between">
@@ -210,8 +223,12 @@ const AuditApproval = () => {
               <FaUserCheck className="text-white text-base" />
             </div>
             <div>
-              <h1 className="text-sm font-black text-gray-900 leading-none">Audit Approval Queue</h1>
-              <p className="text-[10px] text-gray-400 mt-0.5">Review submitted audits from Quality Operators</p>
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
+                Approve Audits
+              </h1>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Review and approve submitted audit records.
+              </p>
             </div>
           </div>
           <button
@@ -219,7 +236,10 @@ const AuditApproval = () => {
             disabled={refreshing || loading}
             className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 hover:border-amber-300 hover:text-amber-600 text-gray-500 rounded-xl text-xs font-semibold transition disabled:opacity-40"
           >
-            <FaSync size={11} className={(refreshing || loading) ? "animate-spin" : ""} />
+            <FaSync
+              size={11}
+              className={refreshing || loading ? "animate-spin" : ""}
+            />
             Refresh
           </button>
         </div>
@@ -242,7 +262,6 @@ const AuditApproval = () => {
       </div>
 
       <div className="w-full px-6 py-4 space-y-4">
-
         {/* ── Summary Stats ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
@@ -250,51 +269,79 @@ const AuditApproval = () => {
               label: "Pending Review",
               value: loading ? "—" : audits.length,
               icon: FaHourglassHalf,
-              bg: "bg-amber-50", border: "border-amber-100",
-              iconCls: "text-amber-500", valCls: "text-amber-700",
-              sub: audits.length > 0
-                ? `Oldest: ${relativeTime(audits[audits.length - 1]?.submittedAt || audits[audits.length - 1]?.updatedAt)}`
-                : "Queue is clear",
+              bg: "bg-amber-50",
+              border: "border-amber-100",
+              iconCls: "text-amber-500",
+              valCls: "text-amber-700",
+              sub:
+                audits.length > 0
+                  ? `Oldest: ${relativeTime(audits[audits.length - 1]?.submittedAt || audits[audits.length - 1]?.updatedAt)}`
+                  : "Queue is clear",
             },
             {
               label: "Approved",
               value: loading ? "—" : stats.approved,
               icon: FaCheckCircle,
-              bg: "bg-emerald-50", border: "border-emerald-100",
-              iconCls: "text-emerald-500", valCls: "text-emerald-700",
+              bg: "bg-emerald-50",
+              border: "border-emerald-100",
+              iconCls: "text-emerald-500",
+              valCls: "text-emerald-700",
               sub: "Total approved audits",
             },
             {
               label: "Rejected",
               value: loading ? "—" : stats.rejected,
               icon: FaTimesCircle,
-              bg: "bg-red-50", border: "border-red-100",
-              iconCls: "text-red-400", valCls: "text-red-600",
+              bg: "bg-red-50",
+              border: "border-red-100",
+              iconCls: "text-red-400",
+              valCls: "text-red-600",
               sub: "Returned for correction",
             },
             {
               label: "Draft",
               value: loading ? "—" : stats.draft,
               icon: FaClipboardList,
-              bg: "bg-gray-50", border: "border-gray-200",
-              iconCls: "text-gray-400", valCls: "text-gray-600",
+              bg: "bg-gray-50",
+              border: "border-gray-200",
+              iconCls: "text-gray-400",
+              valCls: "text-gray-600",
               sub: "Not yet submitted",
             },
-          ].map(({ label, value, icon: Icon, bg, border, iconCls, valCls, sub }) => (
-            <div key={label} className={`${bg} border ${border} rounded-2xl px-4 py-4`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] text-gray-500 font-semibold">{label}</p>
-                <Icon className={`${iconCls} text-base`} />
+          ].map(
+            ({
+              label,
+              value,
+              icon: Icon,
+              bg,
+              border,
+              iconCls,
+              valCls,
+              sub,
+            }) => (
+              <div
+                key={label}
+                className={`${bg} border ${border} rounded-2xl px-4 py-4`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] text-gray-500 font-semibold">
+                    {label}
+                  </p>
+                  <Icon className={`${iconCls} text-base`} />
+                </div>
+                <p className={`text-3xl font-black ${valCls}`}>{value}</p>
+                <p className="text-[10px] text-gray-400 mt-1">{sub}</p>
               </div>
-              <p className={`text-3xl font-black ${valCls}`}>{value}</p>
-              <p className="text-[10px] text-gray-400 mt-1">{sub}</p>
-            </div>
-          ))}
+            ),
+          )}
         </div>
 
         {/* ── Search ─────────────────────────────────────────────────────── */}
         <div className="relative max-w-md">
-          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+          <FaSearch
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={12}
+          />
           <input
             type="text"
             placeholder="Search by audit code, template, serial, operator…"
@@ -313,7 +360,9 @@ const AuditApproval = () => {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
             <FaClipboardList className="text-4xl text-gray-200 mx-auto mb-4" />
             <h3 className="text-base font-bold text-gray-500 mb-1">
-              {audits.length === 0 ? "No pending audits" : "No results match your search"}
+              {audits.length === 0
+                ? "No pending audits"
+                : "No results match your search"}
             </h3>
             <p className="text-sm text-gray-400">
               {audits.length === 0
@@ -326,7 +375,15 @@ const AuditApproval = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-amber-50 border-b border-amber-100">
-                  {["#", "Audit Code", "Template", "Serial / Model", "Operator", "Submitted", "Actions"].map((h, i) => (
+                  {[
+                    "#",
+                    "Audit Code",
+                    "Template",
+                    "Serial / Model",
+                    "Operator",
+                    "Submitted",
+                    "Actions",
+                  ].map((h, i) => (
                     <th
                       key={h}
                       className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 ${i === 6 ? "text-right" : "text-left"}`}
@@ -338,37 +395,63 @@ const AuditApproval = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((audit, idx) => (
-                  <tr key={audit.id} className={`hover:bg-amber-50/20 transition-colors ${idx % 2 === 1 ? "bg-gray-50/30" : ""}`}>
-                    <td className="px-4 py-3 text-[11px] text-gray-400">{idx + 1}</td>
+                  <tr
+                    key={audit.id}
+                    className={`hover:bg-amber-50/20 transition-colors ${idx % 2 === 1 ? "bg-gray-50/30" : ""}`}
+                  >
+                    <td className="px-4 py-3 text-[11px] text-gray-400">
+                      {idx + 1}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-amber-50 rounded-lg flex-shrink-0">
                           <HiClipboardDocumentCheck className="text-amber-500 text-sm" />
                         </div>
                         <div>
-                          <p className="font-black text-gray-800 text-xs">{audit.auditCode || `#${audit.id}`}</p>
-                          <p className="text-[10px] text-gray-400">{audit.reportName || "—"}</p>
+                          <p className="font-black text-gray-800 text-xs">
+                            {audit.auditCode || `#${audit.id}`}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {audit.reportName || "—"}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-xs font-semibold text-gray-700 max-w-[160px] truncate" title={audit.templateName}>
+                      <p
+                        className="text-xs font-semibold text-gray-700 max-w-[160px] truncate"
+                        title={audit.templateName}
+                      >
                         {audit.templateName || "—"}
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-xs font-semibold text-indigo-700">{audit.infoData?.serialNo || audit.infoData?.serial || "—"}</p>
-                      <p className="text-[10px] text-gray-400">{audit.infoData?.modelName || "—"}</p>
+                      <p className="text-xs font-semibold text-indigo-700">
+                        {audit.infoData?.serialNo ||
+                          audit.infoData?.serial ||
+                          "—"}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {audit.infoData?.modelName || "—"}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-600">{audit.submittedBy || audit.createdBy || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {audit.submittedBy || audit.createdBy || "—"}
+                    </td>
                     <td className="px-4 py-3">
-                      <p className="text-xs text-gray-600">{fmtDate(audit.submittedAt || audit.updatedAt)}</p>
-                      <p className="text-[10px] text-gray-400">{relativeTime(audit.submittedAt || audit.updatedAt)}</p>
+                      <p className="text-xs text-gray-600">
+                        {fmtDate(audit.submittedAt || audit.updatedAt)}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {relativeTime(audit.submittedAt || audit.updatedAt)}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => navigate(`/auditreport/audits/${audit.id}`)}
+                          onClick={() =>
+                            navigate(`/auditreport/audits/${audit.id}`)
+                          }
                           title="Review full audit"
                           className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition text-xs font-semibold flex items-center gap-1"
                         >
@@ -423,7 +506,8 @@ const AuditApproval = () => {
                 <FaTimesCircle /> Reject Audit
               </h3>
               <p className="text-xs text-red-200 mt-1">
-                Audit: <strong>{rejectModal.audit?.auditCode}</strong> — audit will be marked as failed.
+                Audit: <strong>{rejectModal.audit?.auditCode}</strong> — audit
+                will be marked as failed.
               </p>
             </div>
             <div className="p-6">
@@ -473,7 +557,8 @@ const AuditApproval = () => {
                 <FaTools /> Send for Rework
               </h3>
               <p className="text-xs text-orange-200 mt-1">
-                Audit: <strong>{reworkModal.audit?.auditCode}</strong> — will be returned to quality auditor for correction.
+                Audit: <strong>{reworkModal.audit?.auditCode}</strong> — will be
+                returned to quality auditor for correction.
               </p>
             </div>
             <div className="p-6">

@@ -34,8 +34,8 @@ const AuditDashboard = () => {
     <div className="h-full overflow-y-auto bg-slate-50 font-sans">
       <PageHeader
         icon={HiClipboardDocumentCheck}
-        title="Audit Dashboard"
-        meta={lastRefreshed ? `Updated ${lastRefreshed.toLocaleTimeString()}` : undefined}
+        title="Dashboard"
+        subtitle="Monitor audit activity, performance, and completion status."
         actions={
           <SecondaryButton icon={FaSync} onClick={refresh} disabled={loading}>
             Refresh
@@ -44,17 +44,33 @@ const AuditDashboard = () => {
       />
 
       <div className="w-full px-6 py-5 space-y-5">
-        <KpiSection loading={loading} stats={stats} cpPassRate={cpPassRate} cpTotal={cpAgg.total} />
+        <KpiSection
+          loading={loading}
+          stats={stats}
+          cpPassRate={cpPassRate}
+          cpTotal={cpAgg.total}
+        />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <CheckpointBreakdownCard loading={loading} cpAgg={cpAgg} cpPassRate={cpPassRate} />
+          <CheckpointBreakdownCard
+            loading={loading}
+            cpAgg={cpAgg}
+            cpPassRate={cpPassRate}
+          />
           <AuditStatusBreakdownCard loading={loading} stats={stats} />
         </div>
 
-        <ModelSummaryTable loading={loading} modelSummary={modelSummary} modelTotals={modelTotals} />
+        <ModelSummaryTable
+          loading={loading}
+          modelSummary={modelSummary}
+          modelTotals={modelTotals}
+        />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <TopPendingModelsCard loading={loading} topPendingModels={topPendingModels} />
+          <TopPendingModelsCard
+            loading={loading}
+            topPendingModels={topPendingModels}
+          />
           <RecentAuditsTable loading={loading} recentAudits={recentAudits} />
         </div>
       </div>

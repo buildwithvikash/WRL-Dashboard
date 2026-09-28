@@ -97,7 +97,8 @@ const fmtDate = (dateStr) => {
 
 const SerialScan = () => {
   const navigate = useNavigate();
-  const { templates, loadTemplates, fetchAuditModelSummary, loadAudits } = useAuditData();
+  const { templates, loadTemplates, fetchAuditModelSummary, loadAudits } =
+    useAuditData();
   const { user } = useSelector((store) => store.auth);
 
   const [serialNumber, setSerialNumber] = useState("");
@@ -170,7 +171,9 @@ const SerialScan = () => {
         // Dash-serial: "D525H223-rest" or "F-D525H223-rest"
         // Find the first segment that is more than one character (skips
         // single-letter family prefixes like "F" or "S").
-        const segment = serial.split("-").find((s) => s.trim().length > 1) || serial.split("-")[0];
+        const segment =
+          serial.split("-").find((s) => s.trim().length > 1) ||
+          serial.split("-")[0];
         modelCode = segment.trim().toUpperCase();
       } else {
         const result = await fetchModelBySerial(serial).unwrap();
@@ -189,19 +192,24 @@ const SerialScan = () => {
 
       // Priority 1: exact match in the template's Applicable Models array
       const byModelsArray = templates.find(
-        (t) => isApproved(t) && t.models?.length > 0 && t.models.includes(modelCode),
+        (t) =>
+          isApproved(t) && t.models?.length > 0 && t.models.includes(modelCode),
       );
 
       // Priority 2: template name starts with the model code
       const byTemplateName = templates.find(
-        (t) => isApproved(t) && t.name.toUpperCase().startsWith(modelCode.toUpperCase()),
+        (t) =>
+          isApproved(t) &&
+          t.name.toUpperCase().startsWith(modelCode.toUpperCase()),
       );
 
       const matched = byModelsArray || byTemplateName;
 
       if (matched) {
         toast.success(`Template found: ${matched.name}`);
-        navigate(`/auditreport/audits/new?template=${matched.id}&serial=${serial}`);
+        navigate(
+          `/auditreport/audits/new?template=${matched.id}&serial=${serial}`,
+        );
         setSerialNumber("");
       } else {
         toast.error(`No approved template found for model: ${modelCode}`);
@@ -232,7 +240,7 @@ const SerialScan = () => {
   const isLoading = summaryLoading || recentLoading;
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  
+
   return (
     <div className="h-full overflow-y-auto bg-slate-50 font-sans flex flex-col">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -249,11 +257,11 @@ const SerialScan = () => {
               <HiClipboardDocumentCheck className="text-white text-base" />
             </div>
             <div>
-              <h1 className="text-sm font-black text-gray-900 leading-none">
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
                 Serial Scan
               </h1>
               <p className="text-[10px] text-gray-400 mt-0.5">
-                Audit Entry Portal
+                Scan the serial numbers to conduct and record audits.
               </p>
             </div>
           </div>
@@ -389,403 +397,422 @@ const SerialScan = () => {
 
         {/* ── Bottom grid: Model Summary | Recent Audits | My Drafts | Rework ─── */}
         <div className="overflow-x-auto pb-2">
-        <div className="grid grid-cols-1 gap-4 min-w-[1100px]">
-          {/* ── Model Summary ─────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-blue-50 rounded-lg">
-                  <FaChartBar className="text-blue-600" size={12} />
+          <div className="grid grid-cols-1 gap-4 min-w-[1100px]">
+            {/* ── Model Summary ─────────────────────────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-blue-50 rounded-lg">
+                    <FaChartBar className="text-blue-600" size={12} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-gray-800">
+                      Model Summary
+                    </h3>
+                    <p className="text-[10px] text-gray-400">
+                      Current shift · {summary.length} models
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-gray-800">
-                    Model Summary
-                  </h3>
-                  <p className="text-[10px] text-gray-400">
-                    Current shift · {summary.length} models
+                {!summaryLoading && summary.length > 0 && (
+                  <span
+                    className={`text-xs font-black px-3 py-1 rounded-full ${totalPct >= 80 ? "bg-emerald-100 text-emerald-700" : totalPct > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"}`}
+                  >
+                    {totalPct}% overall
+                  </span>
+                )}
+              </div>
+
+              {summaryLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
+                </div>
+              ) : summary.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+                  <FaExclamationTriangle className="text-3xl text-gray-200 mb-3" />
+                  <p className="text-sm font-semibold text-gray-400">
+                    No production data for this shift
                   </p>
                 </div>
-              </div>
-              {!summaryLoading && summary.length > 0 && (
-                <span
-                  className={`text-xs font-black px-3 py-1 rounded-full ${totalPct >= 80 ? "bg-emerald-100 text-emerald-700" : totalPct > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"}`}
-                >
-                  {totalPct}% overall
-                </span>
-              )}
-            </div>
-
-            {summaryLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
-              </div>
-            ) : summary.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-                <FaExclamationTriangle className="text-3xl text-gray-200 mb-3" />
-                <p className="text-sm font-semibold text-gray-400">
-                  No production data for this shift
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-auto flex-1">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0">
-                    <tr className="bg-indigo-50 border-b border-indigo-100">
-                      {[
-                        "#",
-                        "Model",
-                        "Prod.",
-                        "Required",
-                        "Done",
-                        "Pending",
-                        "%",
-                      ].map((h, i) => (
-                        <th
-                          key={h}
-                          className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-indigo-500 ${i > 1 ? "text-center" : "text-left"}`}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {summary.map((row, idx) => (
-                      <tr
-                        key={row.modelName}
-                        className={`hover:bg-indigo-50/30 transition-colors ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
-                      >
-                        <td className="px-4 py-2.5 text-[11px] text-gray-400">
-                          {idx + 1}
-                        </td>
-                        <td className="px-4 py-2.5 font-black text-gray-800 text-xs">
-                          {row.modelName}
-                        </td>
-                        <td className="px-4 py-2.5 text-center font-bold text-blue-600 text-xs">
-                          {row.production}
-                        </td>
-                        <td className="px-4 py-2.5 text-center font-semibold text-gray-700 text-xs">
-                          {row.auditRequired}
-                        </td>
-                        <td className="px-4 py-2.5 text-center text-xs">
-                          <span
-                            className={`font-bold ${row.auditDone > 0 ? "text-emerald-600" : "text-gray-400"}`}
+              ) : (
+                <div className="overflow-auto flex-1">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0">
+                      <tr className="bg-indigo-50 border-b border-indigo-100">
+                        {[
+                          "#",
+                          "Model",
+                          "Prod.",
+                          "Required",
+                          "Done",
+                          "Pending",
+                          "%",
+                        ].map((h, i) => (
+                          <th
+                            key={h}
+                            className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-indigo-500 ${i > 1 ? "text-center" : "text-left"}`}
                           >
-                            {row.auditDone}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-center text-xs">
-                          <span
-                            className={`font-bold ${row.pending > 0 ? "text-red-500" : "text-emerald-500"}`}
-                          >
-                            {row.pending > 0 ? row.pending : "0"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-center text-xs">
-                          {pct(row.percentage)}
-                        </td>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-indigo-50/60 border-t-2 border-indigo-100">
-                      <td className="px-4 py-3" colSpan={2}>
-                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider">
-                          Total
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center font-black text-blue-700 text-xs">
-                        {totals.production}
-                      </td>
-                      <td className="px-4 py-3 text-center font-black text-gray-800 text-xs">
-                        {totals.auditRequired}
-                      </td>
-                      <td className="px-4 py-3 text-center font-black text-emerald-700 text-xs">
-                        {totals.auditDone}
-                      </td>
-                      <td className="px-4 py-3 text-center text-xs">
-                        <span
-                          className={`font-black ${totals.pending > 0 ? "text-red-600" : "text-emerald-600"}`}
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {summary.map((row, idx) => (
+                        <tr
+                          key={row.modelName}
+                          className={`hover:bg-indigo-50/30 transition-colors ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
-                          {totals.pending}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center text-xs">
-                        {pct(totalPct)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* ── Recent Audits ──────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-violet-50 rounded-lg">
-                  <FaClipboardList className="text-violet-600" size={12} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-gray-800">
-                    Recent Audits
-                  </h3>
-                  <p className="text-[10px] text-gray-400">Last 10 entries</p>
-                </div>
-              </div>
-              {recentAudits.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200">
-                  {recentAudits.length} records
-                </span>
-              )}
-            </div>
-
-            {recentLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-500 rounded-full animate-spin" />
-              </div>
-            ) : recentAudits.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-                <FaClipboardList className="text-3xl text-gray-200 mb-3" />
-                <p className="text-sm font-semibold text-gray-400">
-                  No audits found
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-auto flex-1">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0">
-                    <tr className="bg-violet-50 border-b border-violet-100">
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        #
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        Audit Code
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        Template
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        Report
-                      </th>
-                      <th className="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        Status
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        By
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                        Created
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {recentAudits.map((audit, idx) => (
-                      <tr
-                        key={audit.id}
-                        onClick={() => navigate(`/auditreport/audits/${audit.id}`)}
-                        className={`hover:bg-violet-50/30 transition-colors cursor-pointer ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
-                      >
-                        <td className="px-4 py-2.5 text-[11px] text-gray-400">
-                          {idx + 1}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span className="font-black text-gray-800 text-xs whitespace-nowrap">
-                            {audit.auditCode || `#${audit.id}`}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 max-w-[140px]">
-                          <span
-                            className="text-xs text-gray-700 font-semibold truncate block"
-                            title={audit.templateName}
-                          >
-                            {audit.templateName || "—"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 max-w-[120px]">
-                          <span
-                            className="text-xs text-gray-500 truncate block"
-                            title={audit.reportName}
-                          >
-                            {audit.reportName || "—"}
-                          </span>
-                          {audit.formatNo && (
-                            <span className="text-[10px] text-gray-400">
-                              {audit.formatNo}
+                          <td className="px-4 py-2.5 text-[11px] text-gray-400">
+                            {idx + 1}
+                          </td>
+                          <td className="px-4 py-2.5 font-black text-gray-800 text-xs">
+                            {row.modelName}
+                          </td>
+                          <td className="px-4 py-2.5 text-center font-bold text-blue-600 text-xs">
+                            {row.production}
+                          </td>
+                          <td className="px-4 py-2.5 text-center font-semibold text-gray-700 text-xs">
+                            {row.auditRequired}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-xs">
+                            <span
+                              className={`font-bold ${row.auditDone > 0 ? "text-emerald-600" : "text-gray-400"}`}
+                            >
+                              {row.auditDone}
                             </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <StatusBadge status={audit.status} />
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
-                          {audit.submittedBy || audit.createdBy || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs text-gray-600">
-                            {fmtDate(audit.createdAt)}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-xs">
+                            <span
+                              className={`font-bold ${row.pending > 0 ? "text-red-500" : "text-emerald-500"}`}
+                            >
+                              {row.pending > 0 ? row.pending : "0"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-xs">
+                            {pct(row.percentage)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-indigo-50/60 border-t-2 border-indigo-100">
+                        <td className="px-4 py-3" colSpan={2}>
+                          <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider">
+                            Total
                           </span>
-                          <br />
-                          <span className="text-[10px] text-gray-400">
-                            {timeAgo(audit.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-center font-black text-blue-700 text-xs">
+                          {totals.production}
+                        </td>
+                        <td className="px-4 py-3 text-center font-black text-gray-800 text-xs">
+                          {totals.auditRequired}
+                        </td>
+                        <td className="px-4 py-3 text-center font-black text-emerald-700 text-xs">
+                          {totals.auditDone}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs">
+                          <span
+                            className={`font-black ${totals.pending > 0 ? "text-red-600" : "text-emerald-600"}`}
+                          >
+                            {totals.pending}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs">
+                          {pct(totalPct)}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* ── My Drafts ──────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-5 py-3.5 border-b border-amber-50 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-amber-50 rounded-lg">
-                  <FaFileAlt className="text-amber-500 text-sm" />
+                    </tfoot>
+                  </table>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-gray-800">My Drafts</h3>
-                  <p className="text-[10px] text-gray-400">Your saved draft audits</p>
-                </div>
-              </div>
-              {myDrafts.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold border border-amber-200">
-                  {myDrafts.length} draft{myDrafts.length !== 1 ? "s" : ""}
-                </span>
               )}
             </div>
 
-            {draftsLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-4 border-amber-100 border-t-amber-400 rounded-full animate-spin" />
-              </div>
-            ) : myDrafts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                <FaFileAlt className="text-3xl text-gray-200 mb-3" />
-                <p className="text-sm font-semibold text-gray-400">No drafts yet</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Saved drafts from serial scan will appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-auto flex-1 divide-y divide-gray-50">
-                {myDrafts.map((draft, idx) => (
-                  <div
-                    key={draft.id}
-                    className={`px-4 py-3 flex items-start gap-3 hover:bg-amber-50/40 transition-colors ${idx % 2 === 1 ? "bg-gray-50/30" : ""}`}
-                  >
-                    <div className="p-1.5 bg-amber-50 rounded-lg flex-shrink-0 mt-0.5">
-                      <FaFileAlt className="text-amber-400 text-sm" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <p className="text-xs font-black text-gray-800 truncate">
-                          {draft.auditCode || `#${draft.id}`}
-                        </p>
-                        <StatusBadge status={draft.status} />
-                      </div>
-                      <p className="text-[11px] text-gray-500 truncate">
-                        {draft.templateName || "—"}
-                      </p>
-                      {(draft.infoData?.serialNo || draft.infoData?.serial) && (
-                        <p className="text-[10px] text-indigo-600 font-mono mt-0.5">
-                          {draft.infoData?.serialNo || draft.infoData?.serial}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        {timeAgo(draft.updatedAt || draft.createdAt)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => navigate(`/auditreport/audits/${draft.id}`)}
-                      className="p-1.5 hover:bg-amber-100 rounded-lg transition text-amber-500 hover:text-amber-700 flex-shrink-0 mt-0.5"
-                      title="Continue draft"
-                    >
-                      <FaEdit size={11} />
-                    </button>
+            {/* ── Recent Audits ──────────────────────────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-violet-50 rounded-lg">
+                    <FaClipboardList className="text-violet-600" size={12} />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-sm font-black text-gray-800">
+                      Recent Audits
+                    </h3>
+                    <p className="text-[10px] text-gray-400">Last 10 entries</p>
+                  </div>
+                </div>
+                {recentAudits.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200">
+                    {recentAudits.length} records
+                  </span>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* ── Rework ─────────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-orange-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-5 py-3.5 border-b border-orange-50 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-orange-50 rounded-lg">
-                  <FaTools className="text-orange-500 text-sm" />
+              {recentLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-violet-100 border-t-violet-500 rounded-full animate-spin" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-gray-800">Rework</h3>
-                  <p className="text-[10px] text-gray-400">Audits returned for correction</p>
+              ) : recentAudits.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+                  <FaClipboardList className="text-3xl text-gray-200 mb-3" />
+                  <p className="text-sm font-semibold text-gray-400">
+                    No audits found
+                  </p>
                 </div>
-              </div>
-              {reworkAudits.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">
-                  {reworkAudits.length} pending
-                </span>
+              ) : (
+                <div className="overflow-auto flex-1">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0">
+                      <tr className="bg-violet-50 border-b border-violet-100">
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          #
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          Audit Code
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          Template
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          Report
+                        </th>
+                        <th className="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          Status
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          By
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                          Created
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {recentAudits.map((audit, idx) => (
+                        <tr
+                          key={audit.id}
+                          onClick={() =>
+                            navigate(`/auditreport/audits/${audit.id}`)
+                          }
+                          className={`hover:bg-violet-50/30 transition-colors cursor-pointer ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
+                        >
+                          <td className="px-4 py-2.5 text-[11px] text-gray-400">
+                            {idx + 1}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="font-black text-gray-800 text-xs whitespace-nowrap">
+                              {audit.auditCode || `#${audit.id}`}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 max-w-[140px]">
+                            <span
+                              className="text-xs text-gray-700 font-semibold truncate block"
+                              title={audit.templateName}
+                            >
+                              {audit.templateName || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 max-w-[120px]">
+                            <span
+                              className="text-xs text-gray-500 truncate block"
+                              title={audit.reportName}
+                            >
+                              {audit.reportName || "—"}
+                            </span>
+                            {audit.formatNo && (
+                              <span className="text-[10px] text-gray-400">
+                                {audit.formatNo}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-center">
+                            <StatusBadge status={audit.status} />
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                            {audit.submittedBy || audit.createdBy || "—"}
+                          </td>
+                          <td className="px-4 py-2.5 whitespace-nowrap">
+                            <span className="text-xs text-gray-600">
+                              {fmtDate(audit.createdAt)}
+                            </span>
+                            <br />
+                            <span className="text-[10px] text-gray-400">
+                              {timeAgo(audit.createdAt)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
-            {reworkLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-4 border-orange-100 border-t-orange-400 rounded-full animate-spin" />
-              </div>
-            ) : reworkAudits.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                <FaCheckCircle className="text-3xl text-emerald-200 mb-3" />
-                <p className="text-sm font-semibold text-emerald-500">All clear!</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  No audits pending rework.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-auto flex-1 divide-y divide-gray-50">
-                {reworkAudits.map((audit, idx) => (
-                  <div
-                    key={audit.id}
-                    className={`px-4 py-3 flex items-start gap-3 hover:bg-orange-50/40 transition-colors ${idx % 2 === 1 ? "bg-gray-50/30" : ""}`}
-                  >
-                    <div className="p-1.5 bg-orange-50 rounded-lg flex-shrink-0 mt-0.5">
-                      <FaTools className="text-orange-400 text-sm" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <p className="text-xs font-black text-gray-800 truncate">
-                          {audit.auditCode || `#${audit.id}`}
-                        </p>
-                        <StatusBadge status={audit.status} />
-                      </div>
-                      <p className="text-[11px] text-gray-500 truncate">
-                        {audit.templateName || "—"}
-                      </p>
-                      {audit.approvalComments && (
-                        <p className="text-[10px] text-orange-600 mt-0.5 truncate" title={audit.approvalComments}>
-                          ↩ {audit.approvalComments}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        {timeAgo(audit.updatedAt || audit.createdAt)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => navigate(`/auditreport/audits/${audit.id}`)}
-                      className="p-1.5 hover:bg-orange-100 rounded-lg transition text-orange-500 hover:text-orange-700 flex-shrink-0 mt-0.5"
-                      title="Fix & resubmit"
-                    >
-                      <FaEdit size={11} />
-                    </button>
+            {/* ── My Drafts ──────────────────────────────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-5 py-3.5 border-b border-amber-50 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-amber-50 rounded-lg">
+                    <FaFileAlt className="text-amber-500 text-sm" />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-sm font-black text-gray-800">
+                      My Drafts
+                    </h3>
+                    <p className="text-[10px] text-gray-400">
+                      Your saved draft audits
+                    </p>
+                  </div>
+                </div>
+                {myDrafts.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold border border-amber-200">
+                    {myDrafts.length} draft{myDrafts.length !== 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
 
-        </div>
+              {draftsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-4 border-amber-100 border-t-amber-400 rounded-full animate-spin" />
+                </div>
+              ) : myDrafts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                  <FaFileAlt className="text-3xl text-gray-200 mb-3" />
+                  <p className="text-sm font-semibold text-gray-400">
+                    No drafts yet
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Saved drafts from serial scan will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-auto flex-1 divide-y divide-gray-50">
+                  {myDrafts.map((draft, idx) => (
+                    <div
+                      key={draft.id}
+                      className={`px-4 py-3 flex items-start gap-3 hover:bg-amber-50/40 transition-colors ${idx % 2 === 1 ? "bg-gray-50/30" : ""}`}
+                    >
+                      <div className="p-1.5 bg-amber-50 rounded-lg flex-shrink-0 mt-0.5">
+                        <FaFileAlt className="text-amber-400 text-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <p className="text-xs font-black text-gray-800 truncate">
+                            {draft.auditCode || `#${draft.id}`}
+                          </p>
+                          <StatusBadge status={draft.status} />
+                        </div>
+                        <p className="text-[11px] text-gray-500 truncate">
+                          {draft.templateName || "—"}
+                        </p>
+                        {(draft.infoData?.serialNo ||
+                          draft.infoData?.serial) && (
+                          <p className="text-[10px] text-indigo-600 font-mono mt-0.5">
+                            {draft.infoData?.serialNo || draft.infoData?.serial}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {timeAgo(draft.updatedAt || draft.createdAt)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          navigate(`/auditreport/audits/${draft.id}`)
+                        }
+                        className="p-1.5 hover:bg-amber-100 rounded-lg transition text-amber-500 hover:text-amber-700 flex-shrink-0 mt-0.5"
+                        title="Continue draft"
+                      >
+                        <FaEdit size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Rework ─────────────────────────────────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-orange-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-5 py-3.5 border-b border-orange-50 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-orange-50 rounded-lg">
+                    <FaTools className="text-orange-500 text-sm" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-gray-800">Rework</h3>
+                    <p className="text-[10px] text-gray-400">
+                      Audits returned for correction
+                    </p>
+                  </div>
+                </div>
+                {reworkAudits.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">
+                    {reworkAudits.length} pending
+                  </span>
+                )}
+              </div>
+
+              {reworkLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-4 border-orange-100 border-t-orange-400 rounded-full animate-spin" />
+                </div>
+              ) : reworkAudits.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                  <FaCheckCircle className="text-3xl text-emerald-200 mb-3" />
+                  <p className="text-sm font-semibold text-emerald-500">
+                    All clear!
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    No audits pending rework.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-auto flex-1 divide-y divide-gray-50">
+                  {reworkAudits.map((audit, idx) => (
+                    <div
+                      key={audit.id}
+                      className={`px-4 py-3 flex items-start gap-3 hover:bg-orange-50/40 transition-colors ${idx % 2 === 1 ? "bg-gray-50/30" : ""}`}
+                    >
+                      <div className="p-1.5 bg-orange-50 rounded-lg flex-shrink-0 mt-0.5">
+                        <FaTools className="text-orange-400 text-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <p className="text-xs font-black text-gray-800 truncate">
+                            {audit.auditCode || `#${audit.id}`}
+                          </p>
+                          <StatusBadge status={audit.status} />
+                        </div>
+                        <p className="text-[11px] text-gray-500 truncate">
+                          {audit.templateName || "—"}
+                        </p>
+                        {audit.approvalComments && (
+                          <p
+                            className="text-[10px] text-orange-600 mt-0.5 truncate"
+                            title={audit.approvalComments}
+                          >
+                            ↩ {audit.approvalComments}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {timeAgo(audit.updatedAt || audit.createdAt)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          navigate(`/auditreport/audits/${audit.id}`)
+                        }
+                        className="p-1.5 hover:bg-orange-100 rounded-lg transition text-orange-500 hover:text-orange-700 flex-shrink-0 mt-0.5"
+                        title="Fix & resubmit"
+                      >
+                        <FaEdit size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

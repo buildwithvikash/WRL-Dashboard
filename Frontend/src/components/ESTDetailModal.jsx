@@ -211,7 +211,7 @@ const ESTDetailModal = () => {
                 EST Test Detail
               </h2>
               <p className="text-slate-400 text-xs">
-                Ref #{data.RefNo} · {data.model_no}
+                Ref #{data.RefNo}
               </p>
             </div>
           </div>
@@ -503,88 +503,6 @@ const ESTDetailModal = () => {
                 Range: {data.set_wattage_upper - data.set_wattage_lower} W
               </p>
             </TestCard>
-
-            {/* Info Card */}
-            <div className="bg-slate-800 rounded-xl shadow p-4 text-white">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                <VscCircuitBoard /> Record Info
-              </p>
-              <div className="space-y-2">
-                {[
-                  {
-                    icon: HiOutlineDocumentReport,
-                    label: "Reference",
-                    value: `#${data.RefNo}`,
-                  },
-                  { icon: FaUser, label: "Operator", value: data.operator },
-                  {
-                    icon: FaCalendarAlt,
-                    label: "Timestamp",
-                    value: data.date_time?.replace("T", " ").slice(0, 19),
-                  },
-                  {
-                    icon: VscCircuitBoard,
-                    label: "Status",
-                    value: data.status === 1 ? "Active" : "Inactive",
-                  },
-                ].map(({ icon: Icon, label, value }) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2"
-                  >
-                    <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                      <Icon size={10} /> {label}
-                    </span>
-                    <span className="text-xs font-semibold text-white">
-                      {value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Raw Data Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <FaBarcode className="text-violet-500" /> Raw Measurements
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {[
-                { label: "ECT Set (O)", value: data.set_ect_ohms },
-                {
-                  label: "ECT Read (O)",
-                  value:
-                    data.read_ect_ohms == null ? "0.119" : data.read_ect_ohms,
-                },
-                { label: "ECT Time (s)", value: data.set_ect_time },
-                { label: "HV Set (kV)", value: data.set_hv_kv },
-                { label: "HV Read (kV)", value: data.read_hv_kv },
-                { label: "HV Set (mA)", value: data.set_hv_ma },
-                { label: "HV Time (s)", value: data.set_hv_time },
-                { label: "IR Set (MO)", value: data.set_ir_mohms },
-                { label: "IR Read (MO)", value: data.read_ir_mohms },
-                { label: "IR Time (s)", value: data.set_ir_time },
-                { label: "LCT Set (mA)", value: data.set_lct_ma },
-                { label: "LCT Read (mA)", value: data.read_lct_ln_ma },
-                { label: "LCT Voltage (V)", value: data.read_lct_ln_Vtg },
-                { label: "Watt Lower", value: data.set_wattage_lower },
-                { label: "Watt Upper", value: data.set_wattage_upper },
-                { label: "Status Code", value: data.status },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100"
-                >
-                  <p className="text-[9px] text-slate-400 uppercase tracking-wide">
-                    {label}
-                  </p>
-                  <p className="text-xs font-semibold text-slate-700 font-mono mt-0.5">
-                    {value ?? <span className="text-slate-300">N/A</span>}
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 

@@ -1,9 +1,4 @@
-import React, {
-  useEffect,
-  useState,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaPlus,
@@ -38,7 +33,13 @@ import { ROLES } from "../../../config/routes.config";
 import TemplateHistoryPanel from "./components/TemplateHistoryPanel";
 import NewTemplateNamePrompt from "./components/NewTemplateNamePrompt";
 import { useTemplateSearch } from "../../../hooks/useTemplateSearch";
-import { Modal, ConfirmModal, StatusBadge as SharedStatusBadge, ModalCloseBtn, TD } from "../_shared.jsx";
+import {
+  Modal,
+  ConfirmModal,
+  StatusBadge as SharedStatusBadge,
+  ModalCloseBtn,
+  TD,
+} from "../_shared.jsx";
 
 // ==================== CONSTANTS ====================
 const CATEGORIES = [
@@ -142,17 +143,41 @@ const getCategoryConfig = (category) =>
 // Approval-status badge palettes — light variant for the table-view row, dark/translucent
 // variant for the gradient grid-card header (both rendered via shared StatusBadge below).
 const APPROVAL_STATUS_LABELS = {
-  approved:         { label: "Approved", cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300" },
-  pending_approval: { label: "Pending",  cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 border border-amber-300" },
-  rejected:         { label: "Rejected", cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-300" },
-  draft:            { label: "Draft",    cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-600 border border-gray-300" },
+  approved: {
+    label: "Approved",
+    cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300",
+  },
+  pending_approval: {
+    label: "Pending",
+    cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 border border-amber-300",
+  },
+  rejected: {
+    label: "Rejected",
+    cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-300",
+  },
+  draft: {
+    label: "Draft",
+    cls: "flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-600 border border-gray-300",
+  },
 };
 
 const APPROVAL_STATUS_LABELS_DARK = {
-  approved:         { label: "Approved", cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/30" },
-  pending_approval: { label: "Pending",  cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30" },
-  rejected:         { label: "Rejected", cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-red-500/20 text-red-300 border border-red-500/30" },
-  draft:            { label: "Draft",    cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30" },
+  approved: {
+    label: "Approved",
+    cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/30",
+  },
+  pending_approval: {
+    label: "Pending",
+    cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30",
+  },
+  rejected: {
+    label: "Rejected",
+    cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-red-500/20 text-red-300 border border-red-500/30",
+  },
+  draft: {
+    label: "Draft",
+    cls: "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30",
+  },
 };
 
 // ==================== SUB-COMPONENTS ====================
@@ -183,162 +208,162 @@ const PreviewModal = ({ template, onClose, onUse, onEdit, canEdit }) => {
 
   return (
     <Modal onClose={onClose}>
-        {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-br from-slate-800 to-indigo-900 text-white flex items-start justify-between gap-3 flex-shrink-0">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <HiClipboardDocumentCheck className="text-xl text-indigo-300" />
-              <span className="text-xs text-indigo-300 font-semibold uppercase tracking-wider">
-                Template Preview
-              </span>
-            </div>
-            <h2 className="text-lg font-black leading-tight">
-              {template.name}
-            </h2>
-            {template.description && (
-              <p className="text-indigo-300 text-xs mt-1 line-clamp-2">
-                {template.description}
-              </p>
-            )}
-          </div>
-          <ModalCloseBtn onClick={onClose} />
-        </div>
-
-        {/* Meta badges */}
-        <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap gap-2 flex-shrink-0">
-          {template.category && (
-            <span
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${catCfg.color}`}
-            >
-              {catCfg.label}
+      {/* Header */}
+      <div className="px-5 py-4 bg-gradient-to-br from-slate-800 to-indigo-900 text-white flex items-start justify-between gap-3 flex-shrink-0">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <HiClipboardDocumentCheck className="text-xl text-indigo-300" />
+            <span className="text-xs text-indigo-300 font-semibold uppercase tracking-wider">
+              Template Preview
             </span>
+          </div>
+          <h2 className="text-lg font-black leading-tight">{template.name}</h2>
+          {template.description && (
+            <p className="text-indigo-300 text-xs mt-1 line-clamp-2">
+              {template.description}
+            </p>
           )}
-          <button
-            onClick={() => navigate(`/auditreport/templates/${template.id}/compare`)}
-            title="Compare versions"
-            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 hover:bg-indigo-100 text-gray-600 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 transition-colors flex items-center gap-1"
-          >
-            v{template.version || "1.0"} <FaCodeBranch size={9} />
-          </button>
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            {getTotalSections(template)} sections
-          </span>
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
-            {stages} stages
-          </span>
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-            {checkpoints} checkpoints
-          </span>
-          <span
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${template.isActive !== false ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}
-          >
-            {template.isActive !== false ? (
-              <FaCheckCircle size={9} />
-            ) : (
-              <FaTimesCircle size={9} />
-            )}
-            {template.isActive !== false ? "Active" : "Inactive"}
-          </span>
         </div>
+        <ModalCloseBtn onClick={onClose} />
+      </div>
 
-        {/* Section structure */}
-        <div className="flex-1 overflow-y-auto p-5">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-            Section Structure
-          </h3>
-          {template.defaultSections?.length > 0 ? (
-            <div className="space-y-2">
-              {template.defaultSections.map((section, si) => (
-                <div
-                  key={section.id || si}
-                  className="border border-gray-200 rounded-xl overflow-hidden"
-                >
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-700 text-white">
-                    <span className="font-semibold text-sm">
-                      {section.sectionName || `Section ${si + 1}`}
-                    </span>
-                    <span className="text-xs text-slate-300">
-                      {section.stages?.length || 0} stages
-                    </span>
-                  </div>
-                  {section.stages?.map((stage, sti) => (
-                    <div
-                      key={stage.id || sti}
-                      className="border-t border-gray-100"
-                    >
-                      <div className="flex items-center justify-between px-4 py-2 bg-indigo-50">
-                        <span className="text-xs font-semibold text-indigo-700">
-                          {stage.stageName || `Stage ${sti + 1}`}
-                        </span>
-                        <span className="text-[10px] text-indigo-400">
-                          {stage.checkPoints?.length || 0} checkpoints
+      {/* Meta badges */}
+      <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap gap-2 flex-shrink-0">
+        {template.category && (
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${catCfg.color}`}
+          >
+            {catCfg.label}
+          </span>
+        )}
+        <button
+          onClick={() =>
+            navigate(`/auditreport/templates/${template.id}/compare`)
+          }
+          title="Compare versions"
+          className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 hover:bg-indigo-100 text-gray-600 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 transition-colors flex items-center gap-1"
+        >
+          v{template.version || "1.0"} <FaCodeBranch size={9} />
+        </button>
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+          {getTotalSections(template)} sections
+        </span>
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+          {stages} stages
+        </span>
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+          {checkpoints} checkpoints
+        </span>
+        <span
+          className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${template.isActive !== false ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}
+        >
+          {template.isActive !== false ? (
+            <FaCheckCircle size={9} />
+          ) : (
+            <FaTimesCircle size={9} />
+          )}
+          {template.isActive !== false ? "Active" : "Inactive"}
+        </span>
+      </div>
+
+      {/* Section structure */}
+      <div className="flex-1 overflow-y-auto p-5">
+        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+          Section Structure
+        </h3>
+        {template.defaultSections?.length > 0 ? (
+          <div className="space-y-2">
+            {template.defaultSections.map((section, si) => (
+              <div
+                key={section.id || si}
+                className="border border-gray-200 rounded-xl overflow-hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-700 text-white">
+                  <span className="font-semibold text-sm">
+                    {section.sectionName || `Section ${si + 1}`}
+                  </span>
+                  <span className="text-xs text-slate-300">
+                    {section.stages?.length || 0} stages
+                  </span>
+                </div>
+                {section.stages?.map((stage, sti) => (
+                  <div
+                    key={stage.id || sti}
+                    className="border-t border-gray-100"
+                  >
+                    <div className="flex items-center justify-between px-4 py-2 bg-indigo-50">
+                      <span className="text-xs font-semibold text-indigo-700">
+                        {stage.stageName || `Stage ${sti + 1}`}
+                      </span>
+                      <span className="text-[10px] text-indigo-400">
+                        {stage.checkPoints?.length || 0} checkpoints
+                      </span>
+                    </div>
+                    {stage.checkPoints?.slice(0, 3).map((cp, ci) => (
+                      <div
+                        key={cp.id || ci}
+                        className="flex items-center gap-2 px-6 py-1.5 border-t border-gray-50"
+                      >
+                        <FaChevronRight
+                          size={8}
+                          className="text-gray-300 flex-shrink-0"
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {cp.checkPoint || `Checkpoint ${ci + 1}`}
                         </span>
                       </div>
-                      {stage.checkPoints?.slice(0, 3).map((cp, ci) => (
-                        <div
-                          key={cp.id || ci}
-                          className="flex items-center gap-2 px-6 py-1.5 border-t border-gray-50"
-                        >
-                          <FaChevronRight
-                            size={8}
-                            className="text-gray-300 flex-shrink-0"
-                          />
-                          <span className="text-xs text-gray-600 truncate">
-                            {cp.checkPoint || `Checkpoint ${ci + 1}`}
-                          </span>
-                        </div>
-                      ))}
-                      {(stage.checkPoints?.length || 0) > 3 && (
-                        <div className="px-6 py-1.5 border-t border-gray-50">
-                          <span className="text-[10px] text-gray-400 italic">
-                            +{stage.checkPoints.length - 3} more checkpoints…
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-300">
-              <FaClipboardList className="text-3xl mx-auto mb-2" />
-              <p className="text-sm">No sections defined</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer actions */}
-        <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
-          <div className="text-xs text-gray-400">
-            Created {relativeTime(template.createdAt)}
-            {template.updatedAt &&
-              template.updatedAt !== template.createdAt &&
-              ` · Updated ${relativeTime(template.updatedAt)}`}
+                    ))}
+                    {(stage.checkPoints?.length || 0) > 3 && (
+                      <div className="px-6 py-1.5 border-t border-gray-50">
+                        <span className="text-[10px] text-gray-400 italic">
+                          +{stage.checkPoints.length - 3} more checkpoints…
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            {canEdit && (
-              <button
-                onClick={() => {
-                  onEdit();
-                  onClose();
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-sm font-semibold transition-all"
-              >
-                <FaEdit size={11} /> Edit
-              </button>
-            )}
+        ) : (
+          <div className="text-center py-8 text-gray-300">
+            <FaClipboardList className="text-3xl mx-auto mb-2" />
+            <p className="text-sm">No sections defined</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer actions */}
+      <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="text-xs text-gray-400">
+          Created {relativeTime(template.createdAt)}
+          {template.updatedAt &&
+            template.updatedAt !== template.createdAt &&
+            ` · Updated ${relativeTime(template.updatedAt)}`}
+        </div>
+        <div className="flex items-center gap-2">
+          {canEdit && (
             <button
               onClick={() => {
-                onUse();
+                onEdit();
                 onClose();
               }}
-              className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-indigo-200"
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-sm font-semibold transition-all"
             >
-              <FaPlus size={11} /> Use Template
+              <FaEdit size={11} /> Edit
             </button>
-          </div>
+          )}
+          <button
+            onClick={() => {
+              onUse();
+              onClose();
+            }}
+            className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-indigo-200"
+          >
+            <FaPlus size={11} /> Use Template
+          </button>
         </div>
+      </div>
     </Modal>
   );
 };
@@ -464,7 +489,10 @@ const TemplateList = () => {
   const handleDuplicateCheck = async (newName) => {
     setDupLoadingId(duplicateSource.id);
     try {
-      return await duplicateTemplate(duplicateSource.id, { newName, createdBy: duplicateCreatedBy() });
+      return await duplicateTemplate(duplicateSource.id, {
+        newName,
+        createdBy: duplicateCreatedBy(),
+      });
     } finally {
       setDupLoadingId(null);
     }
@@ -503,7 +531,9 @@ const TemplateList = () => {
 
   const handleNewTemplateConfirmExisting = (existing) => {
     setShowNamePrompt(false);
-    navigate(`/auditreport/templates/${existing.id}`, { state: { editMode: true } });
+    navigate(`/auditreport/templates/${existing.id}`, {
+      state: { editMode: true },
+    });
   };
 
   const confirmDelete = (template) => {
@@ -673,22 +703,32 @@ const TemplateList = () => {
       {/* ==================== DELETE MODAL ==================== */}
       {showDeleteModal && (
         <ConfirmModal
-          onClose={() => { setShowDeleteModal(false); setTemplateToDelete(null); }}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setTemplateToDelete(null);
+          }}
           onConfirm={handleDelete}
           confirming={deleteLoading}
           icon={FaTrash}
           title="Delete Template"
           subtitle="This action cannot be undone."
-          confirmLabel={<><FaTrash size={11} /> Delete Template</>}
-          confirmingLabel={<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}Deleting…</>}
+          confirmLabel={
+            <>
+              <FaTrash size={11} /> Delete Template
+            </>
+          }
+          confirmingLabel={
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+              Deleting…
+            </>
+          }
         >
           <p className="text-sm text-gray-600 mb-3">
             You are about to permanently delete:
           </p>
           <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
-            <p className="font-bold text-gray-800">
-              {templateToDelete?.name}
-            </p>
+            <p className="font-bold text-gray-800">{templateToDelete?.name}</p>
             {templateToDelete?.category && (
               <p className="text-xs text-gray-400 mt-1 capitalize">
                 {templateToDelete.category} audit
@@ -717,17 +757,11 @@ const TemplateList = () => {
                 <HiClipboardDocumentCheck className="text-xl text-indigo-600" />
               </div>
               <div>
-                <h1 className="text-base font-black text-gray-800 leading-none">
-                  Audit Templates
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
+                  Templates
                 </h1>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {sorted.length} {activeTab === "draft" ? "draft" : ""}{" "}
-                  templates
-                  {hasFilters && (
-                    <span className="ml-1 text-indigo-500 font-semibold">
-                      · filtered
-                    </span>
-                  )}
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  View and manage all available templates.
                 </p>
               </div>
             </div>
@@ -873,10 +907,7 @@ const TemplateList = () => {
           <StatCard
             icon={FaClipboardList}
             label="Total Sections"
-            value={templates.reduce(
-              (t, tmpl) => t + getTotalSections(tmpl),
-              0,
-            )}
+            value={templates.reduce((t, tmpl) => t + getTotalSections(tmpl), 0)}
             iconBg="bg-indigo-50"
             iconColor="text-indigo-500"
           />
@@ -1032,7 +1063,11 @@ const TemplateList = () => {
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {template.approvalStatus && (
                           <SharedStatusBadge
-                            config={APPROVAL_STATUS_LABELS_DARK[template.approvalStatus] || APPROVAL_STATUS_LABELS_DARK.draft}
+                            config={
+                              APPROVAL_STATUS_LABELS_DARK[
+                                template.approvalStatus
+                              ] || APPROVAL_STATUS_LABELS_DARK.draft
+                            }
                           />
                         )}
                         <span
@@ -1069,7 +1104,9 @@ const TemplateList = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/auditreport/templates/${template.id}/compare`);
+                        navigate(
+                          `/auditreport/templates/${template.id}/compare`,
+                        );
                       }}
                       title="Compare versions"
                       className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 transition-colors flex items-center gap-1"
@@ -1287,7 +1324,11 @@ const TemplateList = () => {
                                 </p>
                                 {template.approvalStatus && (
                                   <SharedStatusBadge
-                                    config={APPROVAL_STATUS_LABELS[template.approvalStatus] || APPROVAL_STATUS_LABELS.draft}
+                                    config={
+                                      APPROVAL_STATUS_LABELS[
+                                        template.approvalStatus
+                                      ] || APPROVAL_STATUS_LABELS.draft
+                                    }
                                   />
                                 )}
                               </div>
@@ -1317,7 +1358,10 @@ const TemplateList = () => {
                         <td className="px-4 py-3 hidden lg:table-cell">
                           <div className="flex flex-col items-center gap-1.5">
                             <div className="flex items-center justify-center gap-3 text-xs text-gray-500">
-                              <span className="flex items-center gap-1" title="Sections">
+                              <span
+                                className="flex items-center gap-1"
+                                title="Sections"
+                              >
                                 <FaLayerGroup
                                   size={10}
                                   className="text-slate-400"
@@ -1325,7 +1369,10 @@ const TemplateList = () => {
                                 {template._sections}
                               </span>
                               <span className="text-gray-200">|</span>
-                              <span className="flex items-center gap-1" title="Checkpoints">
+                              <span
+                                className="flex items-center gap-1"
+                                title="Checkpoints"
+                              >
                                 <FaClipboardList
                                   size={10}
                                   className="text-indigo-400"
@@ -1336,12 +1383,15 @@ const TemplateList = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/auditreport/templates/${template.id}/compare`);
+                                navigate(
+                                  `/auditreport/templates/${template.id}/compare`,
+                                );
                               }}
                               title="Compare versions"
                               className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 transition-colors flex items-center gap-1"
                             >
-                              v{template.version || "1.0"} <FaCodeBranch size={8} />
+                              v{template.version || "1.0"}{" "}
+                              <FaCodeBranch size={8} />
                             </button>
                           </div>
                         </td>
@@ -1506,15 +1556,23 @@ const TemplateList = () => {
                           is on and the backend returned this template's other versions */}
                       {showVersionHistory && template.versions?.length > 1 && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-4 bg-blue-50/20 border-t border-blue-100">
+                          <td
+                            colSpan={7}
+                            className="px-6 py-4 bg-blue-50/20 border-t border-blue-100"
+                          >
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                              <FaCodeBranch size={10} /> All Versions — {template.name}
+                              <FaCodeBranch size={10} /> All Versions —{" "}
+                              {template.name}
                             </p>
                             <div className="flex flex-wrap gap-2">
                               {template.versions.map((v) => (
                                 <button
                                   key={v.Version}
-                                  onClick={() => navigate(`/auditreport/templates/${template.id}/compare?to=${v.Version}`)}
+                                  onClick={() =>
+                                    navigate(
+                                      `/auditreport/templates/${template.id}/compare?to=${v.Version}`,
+                                    )
+                                  }
                                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                                     v.IsActiveVersion
                                       ? "bg-green-50 border-green-200 text-green-700"
@@ -1522,9 +1580,13 @@ const TemplateList = () => {
                                   }`}
                                   title={`Created by ${v.CreatedBy || "—"} on ${v.CreatedAt ? new Date(v.CreatedAt).toLocaleString() : "—"}`}
                                 >
-                                  <span className="font-bold">v{v.Version}</span>
+                                  <span className="font-bold">
+                                    v{v.Version}
+                                  </span>
                                   <span>{v.ApprovalStatus}</span>
-                                  {v.IsActiveVersion && <FaCheckCircle size={9} />}
+                                  {v.IsActiveVersion && (
+                                    <FaCheckCircle size={9} />
+                                  )}
                                 </button>
                               ))}
                             </div>

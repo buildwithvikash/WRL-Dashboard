@@ -1145,7 +1145,8 @@ const QuickDowntimeForm = ({
   // from a real fault — without this, every lunch/dinner shows up here
   // needing a manually-assigned reason like any other stoppage.
   const downtimeList = records.filter(
-    (r) => r.state === "Downtime" && r.shift !== "Lunch" && r.shift !== "Dinner",
+    (r) =>
+      r.state === "Downtime" && r.shift !== "Lunch" && r.shift !== "Dinner",
   );
   const activeReasons = downtimeReasons.filter((r) => r.status);
   const [activeTab, setActiveTab] = useState("log"); // "log" | "report"
@@ -2672,7 +2673,8 @@ const PartProcessDashboard = () => {
       if (p.planDate !== selectedDate) return;
       if (p.status === false || p.status === 0) return;
       if (selectedShift) {
-        const matchesShift = p.shift === selectedShift.shiftName ||
+        const matchesShift =
+          p.shift === selectedShift.shiftName ||
           p.shift === "All Shifts" ||
           !realShiftNames.includes(p.shift);
         if (!matchesShift) return;
@@ -3629,7 +3631,7 @@ const PartProcessDashboard = () => {
 
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex-1">
                 <p className="text-[11px] font-bold text-blue-600 uppercase tracking-widest mb-3">
-                  Setting Parameters
+                  Current Part Running
                 </p>
                 <div className="flex flex-col divide-y divide-slate-100">
                   <div className="py-2.5">

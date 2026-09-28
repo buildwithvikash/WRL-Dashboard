@@ -2,16 +2,55 @@ import { useState, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import { Cpu, Wifi, WifiOff, Camera } from "lucide-react";
 import toast from "react-hot-toast";
-import { inputCls, selectCls, Field, StatusBadge, Modal, TableActions, PageHeader, EmptyState, TH, TD } from "./_shared";
+import {
+  inputCls,
+  selectCls,
+  Field,
+  StatusBadge,
+  Modal,
+  TableActions,
+  PageHeader,
+  EmptyState,
+  TH,
+  TD,
+} from "./_shared";
 import { selectMachines } from "../../../redux/slices/masterConfigSlice";
-import { useAddMachineMutation, useUpdateMachineMutation, useDeleteMachineMutation, useUploadMachineImageMutation } from "../../../redux/api/masterConfigApi";
+import {
+  useAddMachineMutation,
+  useUpdateMachineMutation,
+  useDeleteMachineMutation,
+  useUploadMachineImageMutation,
+} from "../../../redux/api/masterConfigApi";
 import { fileBaseURL } from "../../../assets/assets";
 
-const CONTROLLERS = ["FANUC","Siemens","Mitsubishi","Allen Bradley","Beckhoff","Delta","Omron","Custom PLC","Other"];
-const DEPARTMENTS  = ["PART PROCESS"];
-const LINES        = ["FREEZER LINE","VISI COOLER LINE","SUS LINE"];
+const CONTROLLERS = [
+  "FANUC",
+  "Siemens",
+  "Mitsubishi",
+  "Allen Bradley",
+  "Beckhoff",
+  "Delta",
+  "Omron",
+  "Custom PLC",
+  "Other",
+];
+const DEPARTMENTS = ["PART PROCESS"];
+const LINES = ["FREEZER LINE", "VISI COOLER LINE", "SUS LINE"];
 
-const INIT = { machineName:"", machineCode:"", ipAddress:"", controllerType:"FANUC", apiEndpoint:"", department:"", lineName:"", plantLocation:"Plant A", status:true, connected:false, powerRunKw:"", powerStandbyKw:"" };
+const INIT = {
+  machineName: "",
+  machineCode: "",
+  ipAddress: "",
+  controllerType: "FANUC",
+  apiEndpoint: "",
+  department: "",
+  lineName: "",
+  plantLocation: "Plant A",
+  status: true,
+  connected: false,
+  powerRunKw: "",
+  powerStandbyKw: "",
+};
 
 const ConnBadge = ({ ok }) =>
   ok ? (
@@ -29,7 +68,11 @@ const MachineAvatar = ({ row, onUpload, uploading }) => {
   return (
     <div className="relative w-9 h-9 shrink-0 group">
       {row.imagePath ? (
-        <img src={fileBaseURL + row.imagePath} alt={row.machineName} className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
+        <img
+          src={fileBaseURL + row.imagePath}
+          alt={row.machineName}
+          className="w-9 h-9 rounded-lg object-cover border border-slate-200"
+        />
       ) : (
         <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
           <Cpu className="w-4 h-4" />
@@ -61,32 +104,47 @@ const MachineAvatar = ({ row, onUpload, uploading }) => {
 
 const MachineConfig = () => {
   const data = useSelector(selectMachines);
-  const [addMachine]    = useAddMachineMutation();
+  const [addMachine] = useAddMachineMutation();
   const [updateMachine] = useUpdateMachineMutation();
   const [deleteMachine] = useDeleteMachineMutation();
   const [uploadMachineImage] = useUploadMachineImageMutation();
 
-  const [modal, setModal] = useState({ open:false, mode:"add", row:null });
-  const [form, setForm]   = useState(INIT);
+  const [modal, setModal] = useState({ open: false, mode: "add", row: null });
+  const [form, setForm] = useState(INIT);
   const [search, setSearch] = useState("");
   const [testing, setTesting] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
 
-  const filtered = useMemo(() => data.filter((r) =>
-    r.machineName.toLowerCase().includes(search.toLowerCase()) ||
-    r.machineCode.toLowerCase().includes(search.toLowerCase()) ||
-    (r.ipAddress || "").includes(search)
-  ), [data, search]);
+  const filtered = useMemo(
+    () =>
+      data.filter(
+        (r) =>
+          r.machineName.toLowerCase().includes(search.toLowerCase()) ||
+          r.machineCode.toLowerCase().includes(search.toLowerCase()) ||
+          (r.ipAddress || "").includes(search),
+      ),
+    [data, search],
+  );
 
-  const openAdd  = () => { setForm(INIT); setModal({ open:true, mode:"add" }); };
-  const openEdit = (row) => {
-    setForm({ ...row, powerRunKw: row.powerRunKw ?? "", powerStandbyKw: row.powerStandbyKw ?? "" });
-    setModal({ open:true, mode:"edit", row });
+  const openAdd = () => {
+    setForm(INIT);
+    setModal({ open: true, mode: "add" });
   };
-  const closeModal = () => setModal({ open:false });
+  const openEdit = (row) => {
+    setForm({
+      ...row,
+      powerRunKw: row.powerRunKw ?? "",
+      powerStandbyKw: row.powerStandbyKw ?? "",
+    });
+    setModal({ open: true, mode: "edit", row });
+  };
+  const closeModal = () => setModal({ open: false });
 
   const handleSave = async () => {
-    if (!form.machineName || !form.machineCode || !form.ipAddress) { toast.error("Machine Name, Code and IP Address are required."); return; }
+    if (!form.machineName || !form.machineCode || !form.ipAddress) {
+      toast.error("Machine Name, Code and IP Address are required.");
+      return;
+    }
     try {
       if (modal.mode === "add") {
         await addMachine(form).unwrap();
@@ -122,7 +180,11 @@ const MachineConfig = () => {
     }
   };
 
-  const sf = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const sf = (k) => (e) =>
+    setForm((f) => ({
+      ...f,
+      [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
+    }));
 
   const testConnection = (id) => {
     setTesting(id);
@@ -132,18 +194,30 @@ const MachineConfig = () => {
     }, 1500);
   };
 
-  const online  = data.filter((r) => r.connected).length;
+  const online = data.filter((r) => r.connected).length;
   const offline = data.filter((r) => !r.connected).length;
 
   return (
     <div className="h-full flex flex-col bg-slate-100 overflow-hidden">
-      <PageHeader title="Machine Configuration" subtitle="Manage machine masters, controller types, IP addresses and API endpoints" icon={Cpu} onAdd={openAdd} addLabel="Add Machine" search={search} onSearch={setSearch} />
+      <PageHeader
+        title="Machines"
+        subtitle="Add and manage machines"
+        icon={Cpu}
+        onAdd={openAdd}
+        addLabel="Add Machine"
+        search={search}
+        onSearch={setSearch}
+      />
 
       <div className="flex-1 overflow-auto p-4">
         {/* Summary chips */}
         <div className="flex items-center gap-3 mb-3">
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full"><Wifi className="w-3 h-3" /> {online} Online</span>
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full"><WifiOff className="w-3 h-3" /> {offline} Offline</span>
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+            <Wifi className="w-3 h-3" /> {online} Online
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
+            <WifiOff className="w-3 h-3" /> {offline} Offline
+          </span>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -151,41 +225,80 @@ const MachineConfig = () => {
             <table className="min-w-full border-separate border-spacing-0">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50">
-                  <TH>#</TH><TH>Image</TH><TH>Machine Name</TH><TH>Code</TH><TH>IP Address</TH>
-                  <TH>Controller</TH><TH>Department</TH><TH>Line</TH><TH>Plant</TH>
-                  <TH center>Connection</TH><TH center>Status</TH><TH center>Actions</TH>
+                  <TH>#</TH>
+                  <TH>Image</TH>
+                  <TH>Machine Name</TH>
+                  <TH>Code</TH>
+                  <TH>IP Address</TH>
+                  <TH>Controller</TH>
+                  <TH>Department</TH>
+                  <TH>Line</TH>
+                  <TH>Plant</TH>
+                  <TH center>Connection</TH>
+                  <TH center>Status</TH>
+                  <TH center>Actions</TH>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length > 0 ? filtered.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-blue-50/40 transition-colors even:bg-slate-50/30">
-                    <TD cls="text-slate-400">{idx + 1}</TD>
-                    <TD>
-                      <MachineAvatar row={r} uploading={uploadingId === r.id} onUpload={(file) => handleUploadImage(r.id, file)} />
-                    </TD>
-                    <TD cls="font-bold text-slate-800 whitespace-nowrap">{r.machineName}</TD>
-                    <TD><span className="font-mono font-bold text-cyan-600 text-xs">{r.machineCode}</span></TD>
-                    <TD mono cls="text-slate-600">{r.ipAddress}</TD>
-                    <TD><span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">{r.controllerType}</span></TD>
-                    <TD cls="text-slate-500">{r.department}</TD>
-                    <TD cls="text-slate-500">{r.lineName}</TD>
-                    <TD cls="text-slate-500">{r.plantLocation}</TD>
-                    <TD center>
-                      <div className="flex items-center justify-center gap-1.5">
-                        <ConnBadge ok={r.connected} />
-                        <button
-                          onClick={() => testConnection(r.id)}
-                          disabled={testing === r.id}
-                          className="text-[9px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-40"
-                        >
-                          {testing === r.id ? "…" : "Test"}
-                        </button>
-                      </div>
-                    </TD>
-                    <TD center><StatusBadge active={r.status} /></TD>
-                    <TD center><TableActions onEdit={() => openEdit(r)} onDelete={() => handleDelete(r.id)} /></TD>
-                  </tr>
-                )) : <EmptyState colSpan={12} message="No machines configured." />}
+                {filtered.length > 0 ? (
+                  filtered.map((r, idx) => (
+                    <tr
+                      key={r.id}
+                      className="hover:bg-blue-50/40 transition-colors even:bg-slate-50/30"
+                    >
+                      <TD cls="text-slate-400">{idx + 1}</TD>
+                      <TD>
+                        <MachineAvatar
+                          row={r}
+                          uploading={uploadingId === r.id}
+                          onUpload={(file) => handleUploadImage(r.id, file)}
+                        />
+                      </TD>
+                      <TD cls="font-bold text-slate-800 whitespace-nowrap">
+                        {r.machineName}
+                      </TD>
+                      <TD>
+                        <span className="font-mono font-bold text-cyan-600 text-xs">
+                          {r.machineCode}
+                        </span>
+                      </TD>
+                      <TD mono cls="text-slate-600">
+                        {r.ipAddress}
+                      </TD>
+                      <TD>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                          {r.controllerType}
+                        </span>
+                      </TD>
+                      <TD cls="text-slate-500">{r.department}</TD>
+                      <TD cls="text-slate-500">{r.lineName}</TD>
+                      <TD cls="text-slate-500">{r.plantLocation}</TD>
+                      <TD center>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <ConnBadge ok={r.connected} />
+                          <button
+                            onClick={() => testConnection(r.id)}
+                            disabled={testing === r.id}
+                            className="text-[9px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-40"
+                          >
+                            {testing === r.id ? "…" : "Test"}
+                          </button>
+                        </div>
+                      </TD>
+                      <TD center>
+                        <StatusBadge active={r.status} />
+                      </TD>
+                      <TD center>
+                        <TableActions
+                          onEdit={() => openEdit(r)}
+                          onDelete={() => handleDelete(r.id)}
+                        />
+                      </TD>
+                    </tr>
+                  ))
+                ) : (
+                  <EmptyState colSpan={12} message="No machines configured." />
+                )}
               </tbody>
             </table>
           </div>
@@ -193,49 +306,141 @@ const MachineConfig = () => {
       </div>
 
       {modal.open && (
-        <Modal title={modal.mode === "add" ? "Add Machine" : "Edit Machine"} onClose={closeModal} onSave={handleSave} wide>
+        <Modal
+          title={modal.mode === "add" ? "Add Machine" : "Edit Machine"}
+          onClose={closeModal}
+          onSave={handleSave}
+          wide
+        >
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Machine Name" required><input value={form.machineName} onChange={sf("machineName")} placeholder="e.g. Bending Machine 1" className={inputCls} /></Field>
-            <Field label="Machine Code" required><input value={form.machineCode} onChange={sf("machineCode")} placeholder="e.g. BM-01" className={inputCls} /></Field>
-            <Field label="IP Address" required><input value={form.ipAddress} onChange={sf("ipAddress")} placeholder="e.g. 192.168.1.10" className={inputCls} /></Field>
+            <Field label="Machine Name" required>
+              <input
+                value={form.machineName}
+                onChange={sf("machineName")}
+                placeholder="e.g. Bending Machine 1"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Machine Code" required>
+              <input
+                value={form.machineCode}
+                onChange={sf("machineCode")}
+                placeholder="e.g. BM-01"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="IP Address" required>
+              <input
+                value={form.ipAddress}
+                onChange={sf("ipAddress")}
+                placeholder="e.g. 192.168.1.10"
+                className={inputCls}
+              />
+            </Field>
             <Field label="Controller Type">
-              <select value={form.controllerType} onChange={sf("controllerType")} className={selectCls}>
-                {CONTROLLERS.map((c) => <option key={c}>{c}</option>)}
+              <select
+                value={form.controllerType}
+                onChange={sf("controllerType")}
+                className={selectCls}
+              >
+                {CONTROLLERS.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
               </select>
             </Field>
             <Field label="API Endpoint">
-              <input value={form.apiEndpoint} onChange={sf("apiEndpoint")} placeholder="e.g. /api/machine/BM01" className={inputCls} />
+              <input
+                value={form.apiEndpoint}
+                onChange={sf("apiEndpoint")}
+                placeholder="e.g. /api/machine/BM01"
+                className={inputCls}
+              />
             </Field>
             <Field label="Department">
-              <select value={form.department} onChange={sf("department")} className={selectCls}>
+              <select
+                value={form.department}
+                onChange={sf("department")}
+                className={selectCls}
+              >
                 <option value="">Select Department</option>
-                {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
+                {DEPARTMENTS.map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
               </select>
             </Field>
             <Field label="Line Name">
-              <select value={form.lineName} onChange={sf("lineName")} className={selectCls}>
+              <select
+                value={form.lineName}
+                onChange={sf("lineName")}
+                className={selectCls}
+              >
                 <option value="">Select Line</option>
-                {LINES.map((l) => <option key={l}>{l}</option>)}
+                {LINES.map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
               </select>
             </Field>
             <Field label="Plant Location">
-              <input value={form.plantLocation} onChange={sf("plantLocation")} placeholder="e.g. Plant A" className={inputCls} />
+              <input
+                value={form.plantLocation}
+                onChange={sf("plantLocation")}
+                placeholder="e.g. Plant A"
+                className={inputCls}
+              />
             </Field>
             <div className="col-span-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">Power profile — for Energy report</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                Power profile — for Energy report
+              </p>
               <p className="text-[11px] text-amber-700 mt-0.5 mb-3">
-                Used to calculate kWh from production events (no energy meter is connected). Every recorded stop counts as standby, since the machine only reports while it is powered on. Leave blank to use the default AMADA AE-NT figures (4.5 / 0.8 kW).
+                Used to calculate kWh from production events (no energy meter is
+                connected). Every recorded stop counts as standby, since the
+                machine only reports while it is powered on. Leave blank to use
+                the default AMADA AE-NT figures (4.5 / 0.8 kW).
               </p>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Running (kW)"><input type="number" min="0" step="0.1" value={form.powerRunKw ?? ""} onChange={sf("powerRunKw")} placeholder="4.5" className={inputCls} /></Field>
-                <Field label="Standby (kW)"><input type="number" min="0" step="0.1" value={form.powerStandbyKw ?? ""} onChange={sf("powerStandbyKw")} placeholder="0.8" className={inputCls} /></Field>
+                <Field label="Running (kW)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={form.powerRunKw ?? ""}
+                    onChange={sf("powerRunKw")}
+                    placeholder="4.5"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Standby (kW)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={form.powerStandbyKw ?? ""}
+                    onChange={sf("powerStandbyKw")}
+                    placeholder="0.8"
+                    className={inputCls}
+                  />
+                </Field>
               </div>
             </div>
             <div className="col-span-2 flex gap-6 p-3 rounded-lg bg-slate-50 border border-slate-200">
-              {[["status","Machine Active"],["connected","Mark as Connected"]].map(([k, label]) => (
-                <label key={k} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form[k]} onChange={sf(k)} className="w-4 h-4 accent-blue-600" />
-                  <span className="text-sm text-slate-700 font-medium">{label}</span>
+              {[
+                ["status", "Machine Active"],
+                ["connected", "Mark as Connected"],
+              ].map(([k, label]) => (
+                <label
+                  key={k}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form[k]}
+                    onChange={sf(k)}
+                    className="w-4 h-4 accent-blue-600"
+                  />
+                  <span className="text-sm text-slate-700 font-medium">
+                    {label}
+                  </span>
                 </label>
               ))}
             </div>
