@@ -768,6 +768,27 @@ const LptReportTable = ({ data, resolveBIS = deriveBIS }) => {
                   </span>
                 </th>
               ))}
+              {[
+                { label: "Defect", key: "Defect" },
+                { label: "Remark", key: "Remark" },
+              ].map(({ label, key }) => (
+                <th
+                  key={label}
+                  onClick={() => toggleSort(key)}
+                  className="px-3 py-2.5 font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap text-center cursor-pointer hover:text-blue-600"
+                  rowSpan={2}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    {sort.key === key &&
+                      (sort.dir === "asc" ? (
+                        <ArrowUp className="w-2.5 h-2.5" />
+                      ) : (
+                        <ArrowDown className="w-2.5 h-2.5" />
+                      ))}
+                  </span>
+                </th>
+              ))}
               <th
                 className="px-3 py-2.5 font-semibold text-slate-600 border-b border-slate-200 text-center whitespace-nowrap cursor-pointer hover:text-blue-600"
                 onClick={() => toggleSort("Performance")}
@@ -864,6 +885,12 @@ const LptReportTable = ({ data, resolveBIS = deriveBIS }) => {
                     </td>
                   </>
                 ))}
+                <td className="px-3 py-2 border-b border-slate-100 text-slate-700">
+                  {row.Defect || "—"}
+                </td>
+                <td className="px-3 py-2 border-b border-slate-100 text-slate-500">
+                  {row.Remark || "—"}
+                </td>
                 <td className="px-3 py-2 border-b border-slate-100">
                   <StatusPill status={row.Performance} />
                 </td>

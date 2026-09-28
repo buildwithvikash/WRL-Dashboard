@@ -102,7 +102,7 @@ export const getLptReport = tryCatch(async (req, res) => {
   `;
 
   if (model) {
-    query += " AND Model=@model";
+    query += " AND ModelName=@model";
   }
 
   if (lptType && lptType !== "All") {

@@ -21,7 +21,7 @@ import {
   Search, Calendar, Clock, Radio, MapPin, ArrowLeft,
 } from "lucide-react";
 import {
-  LineChart, Line, ComposedChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
+  LineChart, Line, ComposedChart, BarChart, Bar, LabelList, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
 } from "recharts";
 import { baseURL } from "../../assets/assets";
 import {
@@ -673,7 +673,7 @@ const REPORT_TYPES = [
   { k: "alert-summary",  l: "Alert Summary" },
 ];
 
-const PERIOD_OPTIONS = ["Hour", "Day"];
+const PERIOD_OPTIONS = ["Hour", "Day", "Month"];
 
 // Shared datetime-range filter for the report tables/charts — built on the
 // same dateUtils quick-range helpers (Today/Yesterday/MTD, 8AM shift-anchored)
@@ -747,60 +747,6 @@ const ReportDateFilter = ({ df }) => (
   </div>
 );
 
-const formatPeriodLabel = (periodStart, periodType) => {
-  const d = new Date(periodStart);
-  if (periodType === "Hour")  return d.toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-  if (periodType === "Month") return d.toLocaleDateString([], { month: "short", year: "numeric" });
-  return d.toLocaleDateString([], { month: "short", day: "2-digit", year: "2-digit" });
-};
-
-// Multiple meters can share the same period — sum them into one bar so
-// "All Meters" reads as plant-wide consumption rather than overlapping series.
-const buildConsumptionChartData = (rows, periodType) => {
-  const byPeriod = new Map();
-  rows.forEach((r) => {
-    const key = new Date(r.periodStart).getTime();
-    const acc = byPeriod.get(key) || { periodStart: r.periodStart, consumptionKwh: 0 };
-    acc.consumptionKwh += Number(r.consumptionKwh);
-    byPeriod.set(key, acc);
-  });
-  const sorted = [...byPeriod.values()].sort((a, b) => new Date(a.periodStart) - new Date(b.periodStart));
-  let cumulative = 0;
-  return sorted.map((r) => {
-    cumulative += r.consumptionKwh;
-    return { ...r, label: formatPeriodLabel(r.periodStart, periodType), cumulativeKwh: cumulative };
-  });
-};
-
-const ConsumptionChart = ({ data }) => {
-  if (!data.length) return null;
-  const totalKwh = data.reduce((a, r) => a + r.consumptionKwh, 0);
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h3 className="text-sm font-bold text-slate-800">Consumption Trend</h3>
-        <span className="text-xs font-mono font-bold text-amber-600">
-          {totalKwh.toLocaleString(undefined, { maximumFractionDigits: 2 })} kWh total
-        </span>
-      </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} interval="preserveStartEnd" />
-          <YAxis yAxisId="period" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={40} />
-          <YAxis yAxisId="cumulative" orientation="right" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={48} />
-          <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e2e8f0" }}
-            formatter={(v, name) => [`${fmt(v, 3)} kWh`, name === "cumulativeKwh" ? "Cumulative" : "Consumption"]}
-          />
-          <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => (v === "cumulativeKwh" ? "Cumulative" : "Consumption")} />
-          <Bar yAxisId="period" dataKey="consumptionKwh" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-          <Line yAxisId="cumulative" type="monotone" dataKey="cumulativeKwh" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3, fill: "#2563eb" }} activeDot={{ r: 5 }} />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
 
 const ReportsTab = ({ meters }) => {
   const [reportType, setReportType] = useState("consumption");
@@ -822,96 +768,180 @@ const ReportsTab = ({ meters }) => {
   );
 };
 
-const ConsumptionReport = ({ meters }) => {
-  const [meterId, setMeterId] = useState("all");
-  // Hour rollups close every hour, so pairing with the default "Today" date
-  // range actually shows data straight away — a "Day" default would sit
-  // empty until the day itself closes at midnight.
-  const [periodType, setPeriodType] = useState("Hour");
-  const df = useReportDateFilter("today");
-  const [rows, setRows] = useState([]);
-  const [partialRows, setPartialRows] = useState([]);
+// Per Hour / Per Day / Per Month figures, each pulled straight from the real
+// ConsumptionSummary rows for that granularity — no gap-filling, redistribution,
+// or projection. A card shows "—" when no real rows exist for that period type
+// in the selected range, rather than estimating one.
+const useConsumptionSummary = (meterId, params) => {
+  const [stats, setStats] = useState({ hour: null, day: null, month: null });
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = { periodType, ...df.params };
-      if (meterId !== "all") params.meterId = meterId;
-      const res = await axios.get(`${API}consumption`, { params });
-      if (res.data.success) setRows(res.data.data);
-    } catch (e) {} finally { setLoading(false); }
-  }, [meterId, periodType, df.params]);
-
-  // Day rollups only appear once that period fully closes (midnight).
-  // Until then, show a running total for the still-open period — summed
-  // live from completed Hour rows — so the tab isn't just empty.
-  const loadPartial = useCallback(async () => {
-    if (periodType === "Hour") { setPartialRows([]); return; }
-    const now = new Date();
-    const periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    try {
-      const params = { periodType: "Hour", from: periodStart.toISOString(), to: now.toISOString() };
-      if (meterId !== "all") params.meterId = meterId;
-      const res = await axios.get(`${API}consumption`, { params });
-      if (!res.data.success) return;
-      const byMeter = {};
-      res.data.data.forEach((r) => {
-        const acc = byMeter[r.meterId] ??= {
-          meterId: r.meterId, meterName: r.meterName, meterCode: r.meterCode,
-          consumptionKwh: 0, startCounterKwh: null, endCounterKwh: null, earliestStart: null, latestStart: null,
-        };
-        acc.consumptionKwh += Number(r.consumptionKwh);
-        const rStart = new Date(r.periodStart);
-        if (acc.earliestStart == null || rStart < acc.earliestStart) { acc.earliestStart = rStart; acc.startCounterKwh = r.startCounterKwh; }
-        if (acc.latestStart == null || rStart > acc.latestStart) { acc.latestStart = rStart; acc.endCounterKwh = r.endCounterKwh; }
-      });
-      setPartialRows(Object.values(byMeter).map((r) => ({
-        id: `partial-${r.meterId}`, meterId: r.meterId, meterName: r.meterName, meterCode: r.meterCode,
-        periodStart, periodEnd: now,
-        consumptionKwh: r.consumptionKwh, startCounterKwh: r.startCounterKwh, endCounterKwh: r.endCounterKwh,
-        inProgress: true,
-      })));
-    } catch (e) {}
-  }, [periodType, meterId]);
-
-  useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    loadPartial();
-    const iv = setInterval(loadPartial, 60000);
-    return () => clearInterval(iv);
-  }, [loadPartial]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const base = { ...params };
+        if (meterId !== "all") base.meterId = meterId;
+        const [h, d, m] = await Promise.all([
+          axios.get(`${API}consumption`, { params: { ...base, periodType: "Hour" } }),
+          axios.get(`${API}consumption`, { params: { ...base, periodType: "Day" } }),
+          axios.get(`${API}consumption`, { params: { ...base, periodType: "Month" } }),
+        ]);
+        if (cancelled) return;
+        const agg = (res) => {
+          const rows = res.data?.success ? res.data.data : [];
+          const total = rows.reduce((a, r) => a + Number(r.consumptionKwh), 0);
+          const max = rows.reduce((best, r) => (best == null || r.consumptionKwh > best.consumptionKwh ? r : best), null);
+          return { rows, total, count: rows.length, avg: rows.length ? total / rows.length : null, max };
+        };
+        setStats({ hour: agg(h), day: agg(d), month: agg(m) });
+      } catch {
+        // leave previous stats in place; the report table below will also
+        // surface the error via its own failed load.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meterId, params.from, params.to]);
 
-  // The synthetic "in progress" row only represents the currently-open
-  // period, so it only belongs when the active range still reaches "now" —
-  // e.g. the default Today range, or MTD. A range that ends in the past
-  // (Yesterday, or a manually picked historical end date) is browsing
-  // history and shouldn't grow a "current" row. A meter that already has a
-  // real closed row for this period doesn't need the synthetic total either.
-  const includesNow = !df.active || df.quickFilter === "today" || df.quickFilter === "mtd"
-    || (df.endTime && Date.now() - new Date(df.endTime).getTime() < 5 * 60 * 1000);
-  const displayRows = useMemo(() => {
-    const visiblePartialRows = includesNow ? partialRows.filter((p) => !rows.some((r) => r.meterId === p.meterId)) : [];
-    return [...visiblePartialRows, ...rows];
-  }, [partialRows, rows, includesNow]);
-  const chartData = useMemo(() => buildConsumptionChartData(displayRows, periodType), [displayRows, periodType]);
+  return { ...stats, loading };
+};
+
+// ── Report-document styling — mirrors the "Energy consumption summary" PDF
+//    layout (stat card row, numbered sections, plain single-series bar
+//    charts) but every figure is a real ConsumptionSummary value; nothing
+//    here is interpolated, redistributed or projected.
+const PdfStatCard = ({ label, value, unit, sub, loading }) => (
+  <div className="bg-slate-50 border border-slate-100 rounded-xl p-5">
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{label}</p>
+    {loading ? (
+      <div className="h-9 w-28 bg-slate-200/70 rounded animate-pulse" />
+    ) : (
+      <p className="text-3xl font-bold text-slate-900 leading-none">
+        {value != null ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "—"}
+        {value != null && unit && <span className="text-sm text-slate-400 font-normal ml-1.5">{unit}</span>}
+      </p>
+    )}
+    <p className="text-[11px] text-slate-400 mt-2">{sub}</p>
+  </div>
+);
+
+const SectionHeader = ({ index, label }) => (
+  <div className="flex items-center gap-3 mt-9 mb-3">
+    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
+      {index} · {label}
+    </span>
+    <div className="flex-1 h-px bg-slate-200" />
+  </div>
+);
+
+const BarPanel = ({ data, dataKey, xKey, color, showLabels, height = 220 }) => {
+  if (!data.length) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center text-xs text-slate-400" style={{ height }}>
+        No data for this range.
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={data} margin={{ top: showLabels ? 20 : 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="4 4" stroke="#eef2f7" vertical={false} />
+          <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} interval="preserveStartEnd" />
+          <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={40} />
+          <Tooltip
+            contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e2e8f0" }}
+            formatter={(v) => [`${fmt(v, 2)} kWh`, "Consumption"]}
+          />
+          <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]}>
+            {showLabels && (
+              <LabelList dataKey={dataKey} position="top" formatter={(v) => fmt(v, 0)} style={{ fontSize: 10, fill: "#64748b", fontWeight: 600 }} />
+            )}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const MiniStat = ({ label, row }) => (
+  <div className="bg-white border border-slate-200 rounded-xl p-4">
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+    <p className="text-2xl font-bold text-slate-900 leading-none">
+      {row ? fmt(row.consumptionKwh, 1) : "—"}
+      {row && <span className="text-sm text-slate-400 font-normal ml-1.5">kWh</span>}
+    </p>
+    <p className="text-[11px] text-slate-400 mt-2">
+      {row ? new Date(row.periodStart).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "No data in range"}
+    </p>
+  </div>
+);
+
+const ConsumptionReport = ({ meters }) => {
+  const [meterId, setMeterId] = useState("all");
+  const df = useReportDateFilter("today");
+  const { hour, day, month, loading } = useConsumptionSummary(meterId, df.params);
+
+  const meterLabel = meterId === "all"
+    ? "All Meters"
+    : meters.find((m) => String(m.id) === String(meterId))?.meterName || "Meter";
+  const rangeLabel = df.startTime && df.endTime
+    ? `${new Date(df.startTime).toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })} – ${new Date(df.endTime).toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })}`
+    : "Select a date range";
+
+  const hourlyChartData = useMemo(
+    () => (hour?.rows ?? []).slice().sort((a, b) => new Date(a.periodStart) - new Date(b.periodStart))
+      .map((r) => ({ ...r, label: new Date(r.periodStart).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) })),
+    [hour],
+  );
+  const dailyChartData = useMemo(
+    () => (day?.rows ?? []).slice().sort((a, b) => new Date(a.periodStart) - new Date(b.periodStart))
+      .map((r) => ({ ...r, label: new Date(r.periodStart).toLocaleDateString([], { weekday: "short", day: "2-digit", month: "short" }) })),
+    [day],
+  );
+  const monthlyRows = useMemo(
+    () => (month?.rows ?? []).slice().sort((a, b) => new Date(a.periodStart) - new Date(b.periodStart)),
+    [month],
+  );
+
+  const hourMax = hour?.max ?? null;
+  const hourMin = useMemo(
+    () => (hour?.rows?.length ? hour.rows.reduce((best, r) => (best == null || r.consumptionKwh < best.consumptionKwh ? r : best), null) : null),
+    [hour],
+  );
 
   const exportExcel = () => {
-    const headers = ["Meter", "Meter Code", "Period", "Start", "End", "Consumption (kWh)", "Start Counter", "End Counter"];
-    const data = displayRows.map((r) => [
-      r.meterName, r.meterCode, r.inProgress ? `${periodType} (in progress)` : periodType,
-      new Date(r.periodStart).toLocaleString(), r.inProgress ? "In Progress" : new Date(r.periodEnd).toLocaleString(),
-      Number(r.consumptionKwh).toFixed(3), r.startCounterKwh ?? "", r.endCounterKwh ?? "",
-    ]);
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const sheets = [
+      { name: "Hourly", rows: hour?.rows ?? [] },
+      { name: "Daily", rows: day?.rows ?? [] },
+      { name: "Monthly", rows: monthlyRows },
+    ];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Consumption");
-    XLSX.writeFile(wb, `EnergyConsumption_${periodType}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    sheets.forEach(({ name, rows }) => {
+      const data = rows.map((r) => [
+        r.meterName, r.meterCode, new Date(r.periodStart).toLocaleString(),
+        new Date(r.periodEnd).toLocaleString(), Number(r.consumptionKwh).toFixed(3),
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([["Meter", "Meter Code", "Period Start", "Period End", "Consumption (kWh)"], ...data]);
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    });
+    XLSX.writeFile(wb, `EnergyConsumption_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const hasAnyData = Boolean(hour?.rows?.length || day?.rows?.length || monthlyRows.length);
+
   return (
-    <div>
-      <div className="flex flex-wrap items-end gap-4 bg-white border border-slate-200 rounded-xl p-4 mb-4 shadow-sm">
+    <div className="max-w-5xl mx-auto">
+      <div className="mb-1">
+        <h2 className="text-xl font-bold text-slate-900 leading-tight">Energy consumption summary — {meterLabel}</h2>
+        <p className="text-sm text-slate-400 mt-0.5">{rangeLabel} · hourly, daily and monthly views</p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4 bg-white border border-slate-200 rounded-xl p-4 my-4 shadow-sm">
         <div>
           <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Meter</label>
           <select value={meterId} onChange={(e) => setMeterId(e.target.value)} className={selectCls} style={{ minWidth: 180 }}>
@@ -919,51 +949,116 @@ const ConsumptionReport = ({ meters }) => {
             {meters.map((m) => <option key={m.id} value={m.id}>{m.meterName}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Period</label>
-          <select value={periodType} onChange={(e) => setPeriodType(e.target.value)} className={selectCls} style={{ minWidth: 110 }}>
-            {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
         <ReportDateFilter df={df} />
-        <button onClick={exportExcel} disabled={!displayRows.length}
+        <button onClick={exportExcel} disabled={!hasAnyData}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm disabled:opacity-40 transition-colors">
           <Download className="w-3.5 h-3.5" /> Export Excel
         </button>
       </div>
 
-      <ConsumptionChart data={chartData} />
+      {/* ── Stat cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <PdfStatCard
+          label="Per Hour"
+          value={hour?.avg}
+          unit="kWh"
+          sub={hour?.count ? `Average across ${hour.count} hour${hour.count === 1 ? "" : "s"}` : "No completed hours in range"}
+          loading={loading}
+        />
+        <PdfStatCard
+          label="Per Day"
+          value={day?.avg}
+          unit="kWh"
+          sub={day?.max
+            ? `${new Date(day.max.periodStart).toLocaleDateString([], { weekday: "short", day: "2-digit", month: "short" })} actual: ${fmt(day.max.consumptionKwh, 0)} kWh`
+            : "No complete day in range"}
+          loading={loading}
+        />
+        <PdfStatCard
+          label="Per Month"
+          value={month?.total || null}
+          unit="kWh"
+          sub={monthlyRows.length
+            ? monthlyRows.map((r) => new Date(r.periodStart).toLocaleDateString([], { month: "short", year: "numeric" })).join(", ")
+            : "No complete month in range"}
+          loading={loading}
+        />
+      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-auto max-h-[60vh]">
+      {/* ── 01 · Hourly ── */}
+      <SectionHeader index="01" label="Hourly" />
+      <h3 className="text-base font-bold text-slate-900 mb-1">Hourly consumption</h3>
+      <p className="text-xs text-slate-400 mb-3">
+        {hour?.count ? `${hour.count} recorded hourly total${hour.count === 1 ? "" : "s"} for the selected range.` : "No hourly data recorded for the selected range."}
+      </p>
+      <BarPanel data={hourlyChartData} dataKey="consumptionKwh" xKey="label" color="#60a5fa" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+        <MiniStat label="Highest Hour" row={hourMax} />
+        <MiniStat label="Lowest Hour" row={hourMin} />
+      </div>
+
+      {/* ── 02 · Daily ── */}
+      <SectionHeader index="02" label="Daily" />
+      <h3 className="text-base font-bold text-slate-900 mb-1">Daily consumption</h3>
+      <p className="text-xs text-slate-400 mb-3">
+        {day?.count ? `${day.count} complete calendar day${day.count === 1 ? "" : "s"} recorded for the selected range.` : "No complete calendar day recorded for the selected range."}
+      </p>
+      <BarPanel data={dailyChartData} dataKey="consumptionKwh" xKey="label" color="#2563eb" showLabels />
+      {dailyChartData.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mt-3">
           <table className="min-w-full border-separate border-spacing-0">
-            <thead className="sticky top-0 z-10">
+            <thead>
               <tr className="bg-slate-50">
-                <TH>Meter</TH><TH>Period Start</TH><TH>Period End</TH>
-                <TH center>Consumption (kWh)</TH><TH center>Start Counter</TH><TH center>End Counter</TH>
+                <TH>Date</TH><TH center>kWh Recorded</TH>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className="py-10 text-center text-xs text-slate-400">Loading…</td></tr>
-              ) : displayRows.length ? displayRows.map((r) => (
-                <tr key={r.id} className={`transition-colors ${r.inProgress ? "bg-amber-50/50 hover:bg-amber-50" : "hover:bg-blue-50/40 even:bg-slate-50/30"}`}>
-                  <TD cls="font-semibold text-slate-700">{r.meterName} <span className="text-slate-400 font-mono text-[10px]">({r.meterCode})</span></TD>
-                  <TD>{new Date(r.periodStart).toLocaleString()}</TD>
-                  <TD>
-                    {r.inProgress
-                      ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">In Progress</span>
-                      : new Date(r.periodEnd).toLocaleString()}
-                  </TD>
-                  <TD center mono cls="font-bold text-blue-600">{fmt(r.consumptionKwh, 3)}</TD>
-                  <TD center mono cls="text-slate-500">{fmt(r.startCounterKwh, 3)}</TD>
-                  <TD center mono cls="text-slate-500">{fmt(r.endCounterKwh, 3)}</TD>
+              {dailyChartData.map((r) => (
+                <tr key={r.periodStart} className="hover:bg-blue-50/40 even:bg-slate-50/30 transition-colors">
+                  <TD cls="font-semibold text-slate-700">{r.label}</TD>
+                  <TD center mono cls="font-bold text-blue-600">{fmt(r.consumptionKwh, 1)}</TD>
                 </tr>
-              )) : <EmptyState colSpan={6} message="No consumption data for this selection yet." />}
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
+
+      {/* ── 03 · Monthly ── */}
+      <SectionHeader index="03" label="Monthly" />
+      <h3 className="text-base font-bold text-slate-900 mb-1">Monthly consumption</h3>
+      <p className="text-xs text-slate-400 mb-3">
+        A month only appears here once the poller has closed out that full calendar month — no partial month is projected.
+      </p>
+      {monthlyRows.length ? (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <table className="min-w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50">
+                <TH>Month</TH><TH center>kWh Recorded</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyRows.map((r) => (
+                <tr key={r.periodStart} className="hover:bg-blue-50/40 even:bg-slate-50/30 transition-colors">
+                  <TD cls="font-semibold text-slate-700">{new Date(r.periodStart).toLocaleDateString([], { month: "long", year: "numeric" })}</TD>
+                  <TD center mono cls="font-bold text-blue-600">{fmt(r.consumptionKwh, 1)}</TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs text-slate-400">
+          No complete calendar month in the selected range.
+        </div>
+      )}
+
+      <p className="text-[11px] text-slate-400 mt-8 pt-4 border-t border-slate-200">
+        All figures come from the meter's cumulative energy register (EnergyMon.ConsumptionSummary) and are exact
+        counter differences per period — nothing here is interpolated, redistributed or projected. A period only
+        appears once it has actually closed.
+      </p>
     </div>
   );
 };

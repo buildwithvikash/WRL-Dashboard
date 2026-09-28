@@ -78,6 +78,7 @@ import {
   getFpaByModel, getFpaDefectDetails, getFpaHistory,
 } from "../controllers/quality/fpaHistory.controller.js";
 import { getBrazingReport } from "../controllers/quality/brazingReport.controller.js";
+import { getVacuumReport, getVacuumTestTrend } from "../controllers/quality/vacuumReport.controller.js";
 
 const router = express.Router();
 
@@ -87,6 +88,10 @@ router.get("/cpt-report", authenticate, getCPTReport);
 
 // Brazing
 router.get("/brazing-report", authenticate, getBrazingReport);
+
+// Vacuum (Pirani gauge leak test)
+router.get("/vacuum-report", authenticate, getVacuumReport);
+router.get("/vacuum-report/:testId/trend", authenticate, getVacuumTestTrend);
 
 // FPA
 router.get("/fpa-count", authenticate, getFpaCount);
