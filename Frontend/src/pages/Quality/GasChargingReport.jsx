@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import Loader from "../../components/ui/Loader";
 import SelectField from "../../components/ui/SelectField";
 import DateTimePicker from "../../components/ui/DateTimePicker";
-import Pagination from "../../components/ui/Pagination";
 import GasChargingDetailModal from "../../components/GasChargingDetailModal";
 import {
   useGetGasChargingReportQuery,
@@ -681,22 +680,6 @@ const GasChargingReport = () => {
                   </div>
                 )}
               </div>
-
-              {/* Pagination */}
-              {pagination.totalRecords > 0 && (
-                <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 shrink-0">
-                  <Pagination
-                    currentPage={pagination.page}
-                    totalPages={pagination.totalPages}
-                    totalRecords={pagination.totalRecords}
-                    limit={pagination.limit}
-                    onPageChange={(p) => dispatch(setGasChargingPage(p))}
-                    onLimitChange={(l) => dispatch(setGasChargingLimit(l))}
-                    isLoading={isLoading}
-                    compact
-                  />
-                </div>
-              )}
             </>
           )}
         </div>
