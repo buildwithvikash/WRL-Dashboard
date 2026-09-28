@@ -264,13 +264,8 @@ const AuditList = () => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
 
-  const {
-    audits,
-    templates,
-    loadAudits,
-    loadTemplates,
-    getAuditById,
-  } = useAuditData();
+  const { audits, templates, loadAudits, loadTemplates, getAuditById } =
+    useAuditData();
 
   const { user } = useSelector((store) => store.auth);
   // Quality Auditor can only view — no create or edit
@@ -279,26 +274,46 @@ const AuditList = () => {
   );
   // My Drafts tab — available to all users
   const [showMyDrafts, setShowMyDrafts] = useState(false);
-  
+
   // Helper to check if an audit belongs to current user
-  const isAuditOwner = useCallback((audit) => {
-    if (!audit || !user) return false;
-    const auditCreatedBy = String(audit.createdBy || "").trim().toLowerCase();
-    return (
-      auditCreatedBy === String(user.userCode || "").trim().toLowerCase() ||
-      auditCreatedBy === String(user.usercode || "").trim().toLowerCase() ||
-      auditCreatedBy === String(user.empCode || "").trim().toLowerCase() ||
-      auditCreatedBy === String(user.name || "").trim().toLowerCase() ||
-      auditCreatedBy === String(user.username || "").trim().toLowerCase() ||
-      auditCreatedBy === String(user.email || "").trim().toLowerCase()
-    );
-  }, [user]);
+  const isAuditOwner = useCallback(
+    (audit) => {
+      if (!audit || !user) return false;
+      const auditCreatedBy = String(audit.createdBy || "")
+        .trim()
+        .toLowerCase();
+      return (
+        auditCreatedBy ===
+          String(user.userCode || "")
+            .trim()
+            .toLowerCase() ||
+        auditCreatedBy ===
+          String(user.usercode || "")
+            .trim()
+            .toLowerCase() ||
+        auditCreatedBy ===
+          String(user.empCode || "")
+            .trim()
+            .toLowerCase() ||
+        auditCreatedBy ===
+          String(user.name || "")
+            .trim()
+            .toLowerCase() ||
+        auditCreatedBy ===
+          String(user.username || "")
+            .trim()
+            .toLowerCase() ||
+        auditCreatedBy ===
+          String(user.email || "")
+            .trim()
+            .toLowerCase()
+      );
+    },
+    [user],
+  );
 
   const myDraftCount = useMemo(
-    () =>
-      audits.filter(
-        (a) => a.status === "draft" && isAuditOwner(a)
-      ).length,
+    () => audits.filter((a) => a.status === "draft" && isAuditOwner(a)).length,
     [audits, isAuditOwner],
   );
 
@@ -516,7 +531,12 @@ const AuditList = () => {
 
       if (!showMyDrafts && filterStatus && a.status !== filterStatus)
         return false;
-      if (!showMyDrafts && !filterStatus && (a.status === "draft" || a.status === "rework")) return false;
+      if (
+        !showMyDrafts &&
+        !filterStatus &&
+        (a.status === "draft" || a.status === "rework")
+      )
+        return false;
       if (filterTemplate && String(a.templateId) !== String(filterTemplate))
         return false;
 
@@ -608,7 +628,9 @@ const AuditList = () => {
   const stats = useMemo(
     () => ({
       total: audits.length,
-      active: audits.filter((a) => a.status !== "draft" && a.status !== "rework").length,
+      active: audits.filter(
+        (a) => a.status !== "draft" && a.status !== "rework",
+      ).length,
       draft: audits.filter((a) => a.status === "draft").length,
       submitted: audits.filter((a) => a.status === "submitted").length,
       approved: audits.filter((a) => a.status === "approved").length,
@@ -735,20 +757,11 @@ const AuditList = () => {
                 <FaClipboardCheck className="text-xl text-indigo-600" />
               </div>
               <div>
-                <h1 className="text-base font-black text-gray-800 leading-none">
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
                   Audit Records
                 </h1>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {sorted.length} of{" "}
-                  {filterStatus === "draft" || showMyDrafts
-                    ? stats.draft
-                    : stats.active}{" "}
-                  records
-                  {hasFilters && (
-                    <span className="ml-1 text-indigo-500 font-semibold">
-                      · filtered
-                    </span>
-                  )}
+                  View, review and manage completed audits.
                 </p>
               </div>
             </div>
@@ -776,40 +789,42 @@ const AuditList = () => {
 
             {/* Quick status filters */}
             <div className="hidden md:flex items-center gap-1 ml-2">
-              {["", "draft", "submitted", "approved", "rejected", "rework"].map((s) => {
-                const cfg = STATUS_CONFIG[s];
-                return (
-                  <button
-                    key={s || "all"}
-                    onClick={() => {
-                      if (s === "draft") {
-                        setShowMyDrafts(true);
-                        setFilterStatus("");
-                      } else {
-                        setFilterStatus(s);
-                        setShowMyDrafts(false);
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                      (s === "draft" && showMyDrafts) ||
-                      (s !== "draft" && filterStatus === s)
-                        ? s
-                          ? `${cfg.bg} ${cfg.text} ${cfg.border}`
-                          : "bg-slate-800 text-white border-slate-800"
-                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    {s ? cfg?.label : "All"}
-                    <span className="ml-1.5 opacity-60">
-                      {s === "draft"
-                        ? myDraftCount
-                        : s
-                          ? audits.filter((a) => a.status === s).length
-                          : stats.active}
-                    </span>
-                  </button>
-                );
-              })}
+              {["", "draft", "submitted", "approved", "rejected", "rework"].map(
+                (s) => {
+                  const cfg = STATUS_CONFIG[s];
+                  return (
+                    <button
+                      key={s || "all"}
+                      onClick={() => {
+                        if (s === "draft") {
+                          setShowMyDrafts(true);
+                          setFilterStatus("");
+                        } else {
+                          setFilterStatus(s);
+                          setShowMyDrafts(false);
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                        (s === "draft" && showMyDrafts) ||
+                        (s !== "draft" && filterStatus === s)
+                          ? s
+                            ? `${cfg.bg} ${cfg.text} ${cfg.border}`
+                            : "bg-slate-800 text-white border-slate-800"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      {s ? cfg?.label : "All"}
+                      <span className="ml-1.5 opacity-60">
+                        {s === "draft"
+                          ? myDraftCount
+                          : s
+                            ? audits.filter((a) => a.status === s).length
+                            : stats.active}
+                      </span>
+                    </button>
+                  );
+                },
+              )}
             </div>
           </div>
 
@@ -1293,7 +1308,9 @@ const AuditList = () => {
                             {audit.status !== "draft" && (
                               <button
                                 onClick={() =>
-                                  navigate(`/auditreport/audits/${audit.id}/view`)
+                                  navigate(
+                                    `/auditreport/audits/${audit.id}/view`,
+                                  )
                                 }
                                 className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-all"
                                 title="View"
@@ -1315,17 +1332,18 @@ const AuditList = () => {
                                 )}
                               </button>
                             )}
-                            {(!isViewOnly || audit.status === "draft") && audit.status !== "approved" && (
-                              <button
-                                onClick={() =>
-                                  navigate(`/auditreport/audits/${audit.id}`)
-                                }
-                                className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-all"
-                                title="Edit"
-                              >
-                                <FaEdit size={12} />
-                              </button>
-                            )}
+                            {(!isViewOnly || audit.status === "draft") &&
+                              audit.status !== "approved" && (
+                                <button
+                                  onClick={() =>
+                                    navigate(`/auditreport/audits/${audit.id}`)
+                                  }
+                                  className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-all"
+                                  title="Edit"
+                                >
+                                  <FaEdit size={12} />
+                                </button>
+                              )}
                           </div>
                         </td>
                       </tr>
@@ -1539,15 +1557,15 @@ const AuditList = () => {
                     {/* Card footer actions */}
                     <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between">
                       {audit.status !== "draft" && (
-                      <button
-                        onClick={() =>
-                          navigate(`/auditreport/audits/${audit.id}/view`)
-                        }
-                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-indigo-600 font-semibold transition-colors"
-                      >
-                        <FaEye size={11} /> View
-                      </button>
-                    )}
+                        <button
+                          onClick={() =>
+                            navigate(`/auditreport/audits/${audit.id}/view`)
+                          }
+                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-indigo-600 font-semibold transition-colors"
+                        >
+                          <FaEye size={11} /> View
+                        </button>
+                      )}
                       <div className="flex items-center gap-1">
                         {audit.status !== "draft" && (
                           <button
@@ -1563,17 +1581,18 @@ const AuditList = () => {
                             )}
                           </button>
                         )}
-                        {(!isViewOnly || audit.status === "draft") && audit.status !== "approved" && (
-                          <button
-                            onClick={() =>
-                              navigate(`/auditreport/audits/${audit.id}`)
-                            }
-                            className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-500 transition-all"
-                            title="Edit"
-                          >
-                            <FaEdit size={11} />
-                          </button>
-                        )}
+                        {(!isViewOnly || audit.status === "draft") &&
+                          audit.status !== "approved" && (
+                            <button
+                              onClick={() =>
+                                navigate(`/auditreport/audits/${audit.id}`)
+                              }
+                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-500 transition-all"
+                              title="Edit"
+                            >
+                              <FaEdit size={11} />
+                            </button>
+                          )}
                       </div>
                     </div>
                   </div>

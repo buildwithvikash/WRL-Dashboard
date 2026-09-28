@@ -138,9 +138,13 @@ const Gatepassconfig = lazy(
   () => import("../pages/EmployeeManagement/Gatepassconfig"),
 );
 
-const AttendanceRegister = lazy(() => import("../pages/Forms/AttendanceRegister"));
+const AttendanceRegister = lazy(
+  () => import("../pages/Forms/AttendanceRegister"),
+);
 const MyAttendance = lazy(() => import("../pages/Forms/MyAttendance"));
-const AttendanceDashboard = lazy(() => import("../pages/Forms/AttendanceDashboard"));
+const AttendanceDashboard = lazy(
+  () => import("../pages/Forms/AttendanceDashboard"),
+);
 const LeaveApplication = lazy(() => import("../pages/Forms/LeaveApplication"));
 const LeaveApproval = lazy(() => import("../pages/Forms/LeaveApproval"));
 
@@ -247,9 +251,7 @@ const VisionReport = lazy(() => import("../pages/VisionReport/VisionReport"));
 const ChemBulkStorageReport = lazy(
   () => import("../pages/Chemical/ChemBulkStorageReport"),
 );
-const ChemTankData = lazy(
-  () => import("../pages/Chemical/ChemTankData"),
-);
+const ChemTankData = lazy(() => import("../pages/Chemical/ChemTankData"));
 const ChemBulkStorageMailConfig = lazy(
   () => import("../pages/Chemical/ChemBulkStorageMailConfig"),
 );
@@ -938,15 +940,21 @@ export const ROUTE_CONFIG = [
       },
       {
         path: "/auditreport/approval",
-        label: "Template Approval",
+        label: "Approve Templates",
         component: TemplateApproval,
         group: "templates",
+      },
+      {
+        path: "/auditreport/dashboard",
+        label: "Dashboard",
+        component: AuditDashboard,
+        group: "audits",
       },
       {
         path: "/auditreport/serial-scan",
         label: "Serial Scan",
         component: SerialScan,
-        group: "templates",
+        group: "audits",
       },
       {
         path: "/auditreport/audits",
@@ -956,14 +964,8 @@ export const ROUTE_CONFIG = [
       },
       {
         path: "/auditreport/audit-approval",
-        label: "Audit Approval",
+        label: "Approve Audits",
         component: AuditApproval,
-        group: "audits",
-      },
-      {
-        path: "/auditreport/dashboard",
-        label: "Dashboard",
-        component: AuditDashboard,
         group: "audits",
       },
     ],
