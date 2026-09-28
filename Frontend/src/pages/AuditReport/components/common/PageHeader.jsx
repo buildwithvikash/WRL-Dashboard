@@ -16,7 +16,7 @@ export const PageHeader = ({ icon: Icon, title, subtitle, actions }) => (
         )}
 
         <div className="min-w-0">
-          <h1 className="text-sm font-bold text-slate-900 leading-none truncate">
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
             {title}
           </h1>
 
