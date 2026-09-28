@@ -109,8 +109,7 @@ const GasChargingDetailModal = () => {
                 Gas Charging Details
               </h2>
               <p className="text-[11px] text-white/70 mt-0.5 font-mono">
-                Result ID: #{selectedRecord.Result_ID} · Barcode:{" "}
-                {selectedRecord.BARCODE}
+                Result ID: #{selectedRecord.Result_ID}
               </p>
             </div>
           </div>
