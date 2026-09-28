@@ -577,15 +577,15 @@ export const ROUTE_CONFIG = [
         group: "general",
       },
       {
-        path: "/quality/brazing-report",
-        label: "Brazing Report",
-        component: BrazingReport,
-        group: "general",
-      },
-      {
         path: "/quality/vacuum-report",
         label: "Vacuum Report",
         component: VacuumReport,
+        group: "general",
+      },
+      {
+        path: "/quality/brazing-report",
+        label: "Brazing Report",
+        component: BrazingReport,
         group: "general",
       },
       {
