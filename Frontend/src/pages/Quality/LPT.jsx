@@ -389,7 +389,7 @@ const LPT = () => {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
-            LPT — Leak Performance Test
+            LPT — Long Performance Test
           </h1>
           <p className="text-[11px] text-slate-400">
             Quality testing & defect recording station
