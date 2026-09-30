@@ -166,7 +166,7 @@ const FGCastingReport = () => {
                   CreatedOn:
                     item.CreatedOn?.replace("T", " ").replace("Z", "") || "",
                 }))}
-                filename="FG_Casting_Data"
+                filename={`${serialNumber}_`}
               />
             )}
           </div>
