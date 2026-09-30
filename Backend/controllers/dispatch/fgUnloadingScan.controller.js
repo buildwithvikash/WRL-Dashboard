@@ -11,10 +11,14 @@ import {
   isUniqueViolation,
 } from "./scanHelpers.js";
 
+// Fixed values for every FG Unloading insert
+const UNLOADING_SCANNER_NO = "SUS4-PC";
+const UNLOADING_BATCH_CODE = "NA";
+
 // POST /api/dispatch/unloading/scan
-// Body: { rawBarcode, scannerNo }
+// Body: { rawBarcode }
 export const scanFgUnloading = tryCatch(async (req, res) => {
-  const { rawBarcode, scannerNo } = req.body;
+  const { rawBarcode } = req.body;
 
   if (!rawBarcode || !String(rawBarcode).trim()) {
     throw new AppError("rawBarcode is required.", 400);
@@ -22,7 +26,7 @@ export const scanFgUnloading = tryCatch(async (req, res) => {
 
   // DispatchErrorLog.Session_ID is NOT NULL — Unloading has no session, so we use a
   // synthetic marker tied to the scanning station instead of a real Session_ID.
-  const errorSessionTag = `UNLOADING-${scannerNo?.trim() || "NA"}`;
+  const errorSessionTag = `UNLOADING-${UNLOADING_SCANNER_NO}`;
 
   const parsed = parseFgLabel(rawBarcode);
   if (!parsed) {
@@ -59,10 +63,15 @@ export const scanFgUnloading = tryCatch(async (req, res) => {
   const existing = await pool
     .request()
     .input("FGSerialNo", sql.VarChar, material.FGSerialNo)
-    .query(`SELECT FGSerialNo FROM DispatchUnloading WHERE FGSerialNo = @FGSerialNo`);
+    .query(
+      `SELECT FGSerialNo FROM DispatchUnloading WHERE FGSerialNo = @FGSerialNo`,
+    );
 
   if (existing.recordset.length) {
-    await logDuplicateScan({ modelName: material.ModelName, fgSerialNo: material.FGSerialNo });
+    await logDuplicateScan({
+      modelName: material.ModelName,
+      fgSerialNo: material.FGSerialNo,
+    });
     return res.status(409).json({
       success: false,
       code: "DUPLICATE",
@@ -76,8 +85,8 @@ export const scanFgUnloading = tryCatch(async (req, res) => {
       .input("ModelName", sql.VarChar, material.ModelName)
       .input("FGSerialNo", sql.VarChar, material.FGSerialNo)
       .input("AssetCode", sql.VarChar, material.AssetCode)
-      .input("BatchCode", sql.VarChar, material.BatchCode)
-      .input("ScannerNo", sql.VarChar, scannerNo ?? null)
+      .input("BatchCode", sql.VarChar, UNLOADING_BATCH_CODE)
+      .input("ScannerNo", sql.VarChar, UNLOADING_SCANNER_NO)
       .input("DateTime", sql.DateTime, nowIST()).query(`
         INSERT INTO DispatchUnloading (ModelName, FGSerialNo, AssetCode, BatchCode, ScannerNo, DateTime)
         VALUES (@ModelName, @FGSerialNo, @AssetCode, @BatchCode, @ScannerNo, @DateTime)
@@ -85,7 +94,10 @@ export const scanFgUnloading = tryCatch(async (req, res) => {
   } catch (err) {
     if (isUniqueViolation(err)) {
       // Race: another request unloaded this serial between our pre-check and insert
-      await logDuplicateScan({ modelName: material.ModelName, fgSerialNo: material.FGSerialNo });
+      await logDuplicateScan({
+        modelName: material.ModelName,
+        fgSerialNo: material.FGSerialNo,
+      });
       return res.status(409).json({
         success: false,
         code: "DUPLICATE",
@@ -102,7 +114,7 @@ export const scanFgUnloading = tryCatch(async (req, res) => {
       modelName: material.ModelName,
       fgSerialNo: material.FGSerialNo,
       assetCode: material.AssetCode,
-      batchCode: material.BatchCode,
+      batchCode: UNLOADING_BATCH_CODE,
     },
   });
 });
