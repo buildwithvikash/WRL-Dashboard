@@ -36,7 +36,7 @@ const Spinner = ({ cls = "w-4 h-4" }) => (
 /* ════════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════════ */
-const Production = () => {
+const UploadPlan = () => {
   const { user } = useSelector((store) => store.auth);
 
   /* ── Loading ── */
@@ -407,6 +407,7 @@ const Production = () => {
     (acc, item) => acc + (Number(item.PlanQty) || 0),
     0,
   );
+
   const totalPrintLbl = productionPlanningData.reduce(
     (acc, item) => acc + (Number(item.PrintLbl) || 0),
     0,
@@ -430,12 +431,13 @@ const Production = () => {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
-            Production Planning
+            Upload Plan
           </h1>
           <p className="text-[11px] text-slate-400">
-            Plan management · Model allocation · Monthly targets
+            Upload production plans · Manage allocations · Set monthly targets
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
             <span className="text-xl font-bold font-mono text-blue-700">
@@ -918,4 +920,4 @@ const Production = () => {
   );
 };
 
-export default Production;
+export default UploadPlan;

@@ -25,7 +25,7 @@ const Spinner = ({ cls = "w-4 h-4" }) => (
 /* ════════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════════ */
-const PlanStatus = () => {
+const Status = () => {
   const { user } = useSelector((store) => store.auth);
 
   /* ── Loading ── */
@@ -191,12 +191,13 @@ const PlanStatus = () => {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
-            Plan Status
+            Status
           </h1>
           <p className="text-[11px] text-slate-400">
-            Model-wise plan coverage · FG &amp; Assembly
+            Monitor model-wise planning · Track planned &amp; pending models
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
             <span className="text-xl font-bold font-mono text-blue-700">
@@ -536,4 +537,4 @@ const PlanStatus = () => {
   );
 };
 
-export default PlanStatus;
+export default Status;

@@ -8,7 +8,6 @@ import {
   CalendarRange,
   UserCheck,
   SlidersHorizontal,
-  BellRing,
   ClipboardCheck,
   Gauge,
   FileText,
@@ -27,12 +26,18 @@ import {
 } from "lucide-react";
 
 // Lazy loaded components
+// ---------> Display Module
+const Management = lazy(() => import("../pages/Display/Management"));
+const Monitoring = lazy(() => import("../pages/Display/Monitoring"));
+
+// ---------> Production Planning Module
+const UploadPlan = lazy(() => import("../pages/ProductionPlaning/UploadPlan"));
+const Status = lazy(() => import("../pages/ProductionPlaning/Status"));
+
+// ---------> Production Module
 const Overview = lazy(() => import("../pages/Production/Operations/Overview"));
-const ComponentTraceability = lazy(
-  () => import("../pages/Production/Traceability/ComponentTraceability"),
-);
-const Barcodes = lazy(
-  () => import("../pages/Production/Traceability/Barcodes"),
+const WIPCapture = lazy(
+  () => import("../pages/Production/Operations/WIPCapture"),
 );
 const HourlyReport = lazy(
   () => import("../pages/Production/Reports/HourlyReport"),
@@ -54,32 +59,95 @@ const TotalProduction = lazy(
 const StopLossReport = lazy(
   () => import("../pages/Production/Reports/StopLossReport"),
 );
+const ComponentTraceability = lazy(
+  () => import("../pages/Production/Traceability/ComponentTraceability"),
+);
+const Barcodes = lazy(
+  () => import("../pages/Production/Traceability/Barcodes"),
+);
 
+// ---------> IOT Module
+// ── Configuration ─────────────────────────────────────────────────────────────
+const MailConfig = lazy(() => import("../pages/IOT/MasterConfig/MailConfig"));
+const MaterialConfig = lazy(
+  () => import("../pages/IOT/MasterConfig/MaterialConfig"),
+);
+const ShiftConfig = lazy(() => import("../pages/IOT/MasterConfig/ShiftConfig"));
+const DowntimeConfig = lazy(
+  () => import("../pages/IOT/MasterConfig/DowntimeConfig"),
+);
+const QualityConfig = lazy(
+  () => import("../pages/IOT/MasterConfig/QualityConfig"),
+);
+const MachineConfig = lazy(
+  () => import("../pages/IOT/MasterConfig/MachineConfig"),
+);
+const PlanningConfig = lazy(
+  () => import("../pages/IOT/MasterConfig/PlanningConfig"),
+);
+// ── Part Process ──────────────────────────────────────────────────────────────
+const PartProcessOverview = lazy(
+  () => import("../pages/IOT/PartProcess/Overview"),
+);
+const PartProcessProductionReport = lazy(
+  () => import("../pages/IOT/PartProcess/ProductionReport"),
+);
+const PartProcessHourlyReport = lazy(
+  () => import("../pages/IOT/PartProcess/HourlyReport"),
+);
+const PartProcessQualityReport = lazy(
+  () => import("../pages/IOT/PartProcess/QualityReport"),
+);
+const PartProcessDowntimeReport = lazy(
+  () => import("../pages/IOT/PartProcess/DowntimeReport"),
+);
+const PartProcessOEEReport = lazy(
+  () => import("../pages/IOT/PartProcess/OEEReport"),
+);
+const PartProcessEnergyEstimate = lazy(
+  () => import("../pages/IOT/PartProcess/EnergyEstimate"),
+);
+const FactoryMonitor = lazy(
+  () => import("../pages/IOT/PartProcess/FactoryMonitor"),
+);
+const FactoryOsSyncLog = lazy(
+  () => import("../pages/IOT/PartProcess/FactoryOsSyncLog"),
+);
+const PartProcessDashboard = lazy(
+  () => import("../pages/IOT/PartProcess/Dashboard"),
+);
+
+// ---------> Quality Module
 const ReworkReport = lazy(() => import("../pages/Quality/ReworkReport"));
 const GasChargingReport = lazy(
   () => import("../pages/Quality/GasChargingReport"),
 );
 const ESTReport = lazy(() => import("../pages/Quality/ESTReport"));
 const CPTReport = lazy(() => import("../pages/Quality/CPTReport"));
-const BrazingReport = lazy(() => import("../pages/Quality/BrazingReport"));
 const VacuumReport = lazy(() => import("../pages/Quality/VacuumReport"));
-const FPA = lazy(() => import("../pages/Quality/FPA"));
-const FPAReports = lazy(() => import("../pages/Quality/FPAReports"));
-const FPAHistory = lazy(() => import("../pages/Quality/FPAHistory"));
-const LPT = lazy(() => import("../pages/Quality/LPT"));
-const LPTReport = lazy(() => import("../pages/Quality/LPTReport"));
-const MassFlowReport = lazy(() => import("../pages/Quality/MassFlowReport"));
+const BrazingReport = lazy(() => import("../pages/Quality/BrazingReport"));
 const DispatchHold = lazy(() => import("../pages/Quality/DispatchHold"));
 const HoldCabinateDetails = lazy(
   () => import("../pages/Quality/HoldCabinateDetails"),
 );
 const TagUpdate = lazy(() => import("../pages/Quality/TagUpdate"));
+const LPT = lazy(() => import("../pages/Quality/LPT"));
+const LPTReport = lazy(() => import("../pages/Quality/LPTReport"));
 const LPTRecipe = lazy(() => import("../pages/Quality/LPTRecipe"));
+const MassFlowReport = lazy(() => import("../pages/Quality/MassFlowReport"));
+const FPA = lazy(() => import("../pages/Quality/FPA"));
+const FPAReports = lazy(() => import("../pages/Quality/FPAReports"));
+const FPAHistory = lazy(() => import("../pages/Quality/FPAHistory"));
 const BISDashboard = lazy(() => import("../pages/Quality/BIS/BISDashboard"));
 const BISTestLabDashboard = lazy(
   () => import("../pages/Quality/BIS/BISTestLabDashboard"),
 );
 const BEECalculation = lazy(() => import("../pages/Quality/BEECalculation"));
+
+// ---------> Vision Camera Module
+const VisionCameraReport = lazy(
+  () => import("../pages/VisionCamera/VisionReport"),
+);
 
 const DispatchPerformanceReport = lazy(
   () => import("../pages/Logistic/Reports/DispatchPerformanceReport"),
@@ -107,9 +175,6 @@ const FGUnloadingScan = lazy(
 const FGDispatchScan = lazy(
   () => import("../pages/Logistic/Scanning/FGDispatchScan"),
 );
-
-const Production = lazy(() => import("../pages/Planing/Production"));
-const PlanStatus = lazy(() => import("../pages/Planing/PlanStatus"));
 
 const Dashboard = lazy(() => import("../pages/Visitor/Dashboard"));
 const GeneratePass = lazy(() => import("../pages/Visitor/GeneratePass"));
@@ -188,65 +253,6 @@ const DehumidifierDashboard = lazy(
 const EnergyMeterDashboard = lazy(
   () => import("../pages/Readings/EnergyMeterDashboard"),
 );
-const Monitoring = lazy(() => import("../pages/Display/Monitoring"));
-const Management = lazy(() => import("../pages/Display/Management"));
-const WIPCapture = lazy(
-  () => import("../pages/Production/Operations/WIPCapture"),
-);
-
-// ── Master Config ─────────────────────────────────────────────────────────────
-const MaterialConfig = lazy(
-  () => import("../pages/IOT/MasterConfig/MaterialConfig"),
-);
-const ShiftConfig = lazy(() => import("../pages/IOT/MasterConfig/ShiftConfig"));
-const DowntimeConfig = lazy(
-  () => import("../pages/IOT/MasterConfig/DowntimeConfig"),
-);
-const QualityConfig = lazy(
-  () => import("../pages/IOT/MasterConfig/QualityConfig"),
-);
-const MachineConfig = lazy(
-  () => import("../pages/IOT/MasterConfig/MachineConfig"),
-);
-const PlanningConfig = lazy(
-  () => import("../pages/IOT/MasterConfig/PlanningConfig"),
-);
-const MailConfig = lazy(() => import("../pages/IOT/MasterConfig/MailConfig"));
-
-// ── Part Process ──────────────────────────────────────────────────────────────
-const PartProcessOverview = lazy(
-  () => import("../pages/IOT/PartProcess/Overview"),
-);
-const PartProcessDashboard = lazy(
-  () => import("../pages/IOT/PartProcess/Dashboard"),
-);
-const PartProcessProductionReport = lazy(
-  () => import("../pages/IOT/PartProcess/ProductionReport"),
-);
-const PartProcessHourlyReport = lazy(
-  () => import("../pages/IOT/PartProcess/HourlyReport"),
-);
-const PartProcessQualityReport = lazy(
-  () => import("../pages/IOT/PartProcess/QualityReport"),
-);
-const PartProcessDowntimeReport = lazy(
-  () => import("../pages/IOT/PartProcess/DowntimeReport"),
-);
-const FactoryMonitor = lazy(
-  () => import("../pages/IOT/PartProcess/FactoryMonitor"),
-);
-const FactoryOsSyncLog = lazy(
-  () => import("../pages/IOT/PartProcess/FactoryOsSyncLog"),
-);
-const PartProcessOEEReport = lazy(
-  () => import("../pages/IOT/PartProcess/OEEReport"),
-);
-const PartProcessEnergyEstimate = lazy(
-  () => import("../pages/IOT/PartProcess/EnergyEstimate"),
-);
-
-// ── Vision Report ─────────────────────────────────────────────────────────
-const VisionReport = lazy(() => import("../pages/VisionReport/VisionReport"));
 
 // ── Chemical ─────────────────────────────────────────────────────────────
 const ChemBulkStorageReport = lazy(
@@ -299,7 +305,7 @@ export const ROLES = {
 
 // ─── Route Configuration ──────────────────────────────────────────────────────
 export const ROUTE_CONFIG = [
-  // ── Display ──────────────────────────────────────────────────────────────
+  // ── Display Module ──────────────────────────────────────────────────────────────
   {
     key: "display",
     icon: Monitor,
@@ -321,27 +327,27 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Planning ─────────────────────────────────────────────────────────────
+  // ── Production Planning Module ─────────────────────────────────────────────────────────────
   {
     key: "planing",
     icon: CalendarRange,
-    label: "Planning",
-    basePath: "/planing",
+    label: "Production Planning",
+    basePath: "/production-planing",
     items: [
       {
-        path: "/planing/production-planing",
-        label: "Production",
-        component: Production,
+        path: "/production-planing/upload-plan",
+        label: "Upload Plan",
+        component: UploadPlan,
       },
       {
-        path: "/planing/plan-status",
-        label: "Plan Status",
-        component: PlanStatus,
+        path: "/production-planing/status",
+        label: "Status",
+        component: Status,
       },
     ],
   },
 
-  // ── Production ───────────────────────────────────────────────────────────
+  // ── Production Module ───────────────────────────────────────────────────────────
   {
     key: "production",
     icon: Factory,
@@ -422,7 +428,7 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Master Config ────────────────────────────────────────────────────────
+  // ── IOT Module Configuration ────────────────────────────────────────────────────────
   {
     key: "masterConfig",
     icon: Settings2,
@@ -539,7 +545,7 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Quality ──────────────────────────────────────────────────────────────
+  // ── Quality Module ──────────────────────────────────────────────────────────────
   {
     key: "quality",
     icon: ShieldCheck,
@@ -695,7 +701,7 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Vision Report ────────────────────────────────────────────────────────
+  // ── Vision Camera Module ────────────────────────────────────────────────────────
   {
     key: "visionReport",
     icon: ScanEye,
@@ -705,7 +711,7 @@ export const ROUTE_CONFIG = [
       {
         path: "/vision-report",
         label: "Inspection Report",
-        component: VisionReport,
+        component: VisionCameraReport,
       },
     ],
   },
