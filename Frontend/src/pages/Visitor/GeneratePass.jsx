@@ -77,42 +77,68 @@ const GeneratePass = () => {
       setVisitorData((prev) => ({ ...prev, visitorPhoto: reader.result }));
       setError(null);
     };
-    reader.onerror = () => setError("Could not read the captured photo. Please try again.");
+    reader.onerror = () =>
+      setError("Could not read the captured photo. Please try again.");
     reader.readAsDataURL(file);
   };
 
+  const streamRef = useRef(null);
+
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  // Release the camera if the visitor leaves the page mid-capture.
+  useEffect(() => stopStream, []);
+
   const startCamera = async () => {
+    // Plain HTTP (no secure context): getUserMedia is unavailable, so use the
+    // OS camera picker instead.
     if (!canUseGetUserMedia()) {
       nativeCamRef.current?.click();
       return;
     }
 
     try {
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      // Always release any previously opened stream first, otherwise the
+      // camera stays locked and the next open fails with NotReadableError.
+      stopStream();
 
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter((d) => d.kind === "videoinput");
-
-      if (videoDevices.length === 0) {
-        setError("No camera found. Please connect a camera.");
-        return;
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "user" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (firstErr) {
+        // Some devices reject the constraints above - retry with the
+        // simplest possible request before giving up.
+        if (
+          firstErr.name === "NotAllowedError" ||
+          firstErr.name === "NotFoundError"
+        ) {
+          throw firstErr;
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
       }
 
-      const selectedDeviceId = videoDevices[videoDevices.length - 1].deviceId;
+      streamRef.current = stream;
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId: selectedDeviceId ? { ideal: selectedDeviceId } : undefined,
-        },
-        audio: false,
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.muted = true;
-        videoRef.current.playsInline = true;
-
-        await videoRef.current.play().catch((playErr) => {
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+        await video.play().catch((playErr) => {
           console.warn("Autoplay prevented:", playErr);
         });
       }
@@ -133,10 +159,7 @@ const GeneratePass = () => {
         setError("Could not access camera. Please check device connection.");
       }
 
-      // In-page camera access failed (denied, no device, or in-use) — the
-      // OS's native camera app runs under a separate permission model on
-      // several mobile browsers and can still succeed here, so try it
-      // instead of leaving the visitor stuck with no way to add the photo.
+      // Fall back to the OS camera/file picker so the visitor is never stuck.
       nativeCamRef.current?.click();
     }
   };
@@ -144,6 +167,10 @@ const GeneratePass = () => {
   const capturePhoto = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    if (!video || !canvas || !video.videoWidth) {
+      toast.error("Camera is still starting. Please try again in a moment.");
+      return;
+    }
     const context = canvas.getContext("2d");
 
     canvas.width = video.videoWidth;
@@ -151,7 +178,7 @@ const GeneratePass = () => {
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const photoDataUrl = canvas.toDataURL("image/jpeg");
+    const photoDataUrl = canvas.toDataURL("image/jpeg", 0.92);
 
     setCapturedPhoto(photoDataUrl);
     setVisitorData((prev) => ({
@@ -159,9 +186,7 @@ const GeneratePass = () => {
       visitorPhoto: photoDataUrl,
     }));
 
-    const stream = video.srcObject;
-    const tracks = stream.getTracks();
-    tracks.forEach((track) => track.stop());
+    stopStream();
   };
 
   const renderPhotoCaptureSection = () => {
@@ -171,6 +196,13 @@ const GeneratePass = () => {
         {error && (
           <div className="text-red-500 text-sm bg-red-50 p-2 rounded-lg w-full text-center">
             {error}
+          </div>
+        )}
+
+        {!secure && (
+          <div className="text-amber-700 text-xs bg-amber-50 border border-amber-200 p-2 rounded-lg w-full text-center">
+            Live camera needs a secure (HTTPS) connection. On a PC, open this
+            site using its https:// address, or choose a photo file instead.
           </div>
         )}
 
@@ -192,6 +224,8 @@ const GeneratePass = () => {
                 <video
                   ref={videoRef}
                   autoPlay
+                  playsInline
+                  muted
                   style={{
                     display: capturedPhoto ? "none" : "block",
                     transform: "scaleX(-1)",
