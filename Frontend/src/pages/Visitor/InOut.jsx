@@ -19,6 +19,7 @@ import toast from "react-hot-toast";
 import { baseURL } from "../../assets/assets";
 import { useNavigate } from "react-router-dom";
 import {formatISODateString}  from "../../utils/dateUtils.js";
+import CompanionList from "../../components/visitor/CompanionList.jsx";
 
 /* ==================== Counter Card (Dashboard-style) ==================== */
 const CounterCard = ({ icon: Icon, title, value, color }) => (
@@ -161,7 +162,8 @@ const InOut = () => {
       visitor.visitor_name?.toLowerCase().includes(query) ||
       visitor.pass_id?.toLowerCase().includes(query) ||
       visitor.department_name?.toLowerCase().includes(query) ||
-      visitor.department_to_visit?.toLowerCase().includes(query)
+      visitor.department_to_visit?.toLowerCase().includes(query) ||
+      visitor.companions?.some((c) => c.name?.toLowerCase().includes(query))
     );
   });
 
@@ -431,6 +433,19 @@ const InOut = () => {
                           </div>
                         </div>
                       </div>
+
+                      {visitor.companions?.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-semibold text-gray-600 mb-1.5 text-center lg:text-left">
+                            Accompanying People ({visitor.companions.length})
+                          </p>
+                          <CompanionList
+                            companions={visitor.companions}
+                            onPhotoClick={setSelectedImage}
+                            size="w-10 h-10"
+                          />
+                        </div>
+                      )}
 
                       {/* Buttons */}
                       <div className="mt-4 flex flex-wrap justify-center lg:justify-start gap-3">

@@ -5,6 +5,18 @@ import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
 import { convertToIST } from "../../utils/convertToIST.js";
 
+// Count + "Name (phone), ..." list of the people accompanying each pass —
+// photos are left out here (list views); /visitor/details returns them.
+export const COMPANIONS_APPLY = `
+  OUTER APPLY (
+    SELECT
+      COUNT(*) AS companion_count,
+      STRING_AGG(CONCAT(COALESCE(NULLIF(c.Name, ''), 'Unnamed'), CASE WHEN NULLIF(c.Phone, '') IS NOT NULL THEN ' (' + c.Phone + ')' END), ', ') AS companions
+    FROM VisitorPassCompanions c
+    WHERE c.PassId = vp.pass_id
+  ) comp
+`;
+
 // Fetch Visitors (Report)
 export const fetchVisitors = tryCatch(async (req, res) => {
   const { startTime, endTime } = req.query;
@@ -57,7 +69,10 @@ export const fetchVisitors = tryCatch(async (req, res) => {
           ) AS visit_duration,
 
           vp_count.total_passes AS no_of_visit,
-          vp.token
+          vp.token,
+          vp.no_of_people,
+          comp.companion_count,
+          comp.companions
 
       FROM visitors v
       INNER JOIN visitor_passes vp 
@@ -75,6 +90,7 @@ export const fetchVisitors = tryCatch(async (req, res) => {
           GROUP BY visitor_id
       ) vp_count 
           ON vp_count.visitor_id = v.visitor_id
+      ${COMPANIONS_APPLY}
 
       WHERE vl.check_in_time BETWEEN @startTime AND @endTime
     `);
@@ -137,7 +153,10 @@ export const searchByCompany = tryCatch(async (req, res) => {
           ) AS visit_duration,
 
           vp_count.total_passes AS no_of_visit,
-          vp.token
+          vp.token,
+          vp.no_of_people,
+          comp.companion_count,
+          comp.companions
 
       FROM visitors v
       INNER JOIN visitor_passes vp
@@ -155,6 +174,7 @@ export const searchByCompany = tryCatch(async (req, res) => {
           GROUP BY visitor_id
       ) vp_count
           ON vp_count.visitor_id = v.visitor_id
+      ${COMPANIONS_APPLY}
 
       WHERE v.company LIKE @company
       ORDER BY vl.check_in_time DESC

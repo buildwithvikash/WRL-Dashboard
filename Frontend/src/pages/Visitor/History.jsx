@@ -207,7 +207,7 @@ const History = () => {
                   <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                   <input
                     type="text"
-                    placeholder="Search by name or company across all visitors..."
+                    placeholder="Search by name, company or accompanying person..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -366,6 +366,11 @@ const History = () => {
                               <div>
                                 <p className="font-medium text-gray-800">{v.visitor_name}</p>
                                 <p className="text-xs text-gray-400">{v.contact_no || "No contact"}</p>
+                                {v.companion_count > 0 && (
+                                  <p className="text-[11px] text-purple-600" title={v.companions || ""}>
+                                    +{v.companion_count} accompanying
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>

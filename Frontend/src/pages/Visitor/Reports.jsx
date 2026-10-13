@@ -170,13 +170,16 @@ const Reports = () => {
         return safeLower(item.company).includes(lowerTerm);
       case "purpose":
         return safeLower(item.purpose_of_visit).includes(lowerTerm);
+      case "companions":
+        return safeLower(item.companions).includes(lowerTerm);
       default:
         return (
           safeLower(item.visitor_name).includes(lowerTerm) ||
           safeLower(item.contact_no).includes(lowerTerm) ||
           safeLower(item.email).includes(lowerTerm) ||
           safeLower(item.company).includes(lowerTerm) ||
-          safeLower(item.purpose_of_visit).includes(lowerTerm)
+          safeLower(item.purpose_of_visit).includes(lowerTerm) ||
+          safeLower(item.companions).includes(lowerTerm)
         );
     }
   });
@@ -314,6 +317,7 @@ const Reports = () => {
                     <option value="email">Email</option>
                     <option value="company">Company</option>
                     <option value="purpose">Purpose</option>
+                    <option value="companions">Accompanying</option>
                   </select>
                 </div>
               </div>
@@ -371,7 +375,7 @@ const Reports = () => {
               <table className="w-full border-collapse text-xs">
                 <thead className="bg-gray-100">
                   <tr>
-                    {["Sr. No", "Type", "Name", "Contact", "Company", "Check In", "Check Out", "Duration", "Visited Employee", "Dept.", "Token", "Actions"].map((h) => (
+                    {["Sr. No", "Type", "Name", "Contact", "Company", "Accompanying", "Check In", "Check Out", "Duration", "Visited Employee", "Dept.", "Token", "Actions"].map((h) => (
                       <th key={h} className="p-2.5 border-b border-gray-200 text-left font-semibold text-gray-600 whitespace-nowrap">
                         {h}
                       </th>
@@ -393,6 +397,18 @@ const Reports = () => {
                           <td className="p-2.5 font-medium text-gray-800 whitespace-nowrap">{v.visitor_name || "—"}</td>
                           <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.contact_no || "—"}</td>
                           <td className="p-2.5 text-gray-700 whitespace-nowrap">{v.company || "—"}</td>
+                          <td className="p-2.5 text-gray-700 min-w-[220px]">
+                            {v.companion_count > 0 ? (
+                              <div className="flex items-start gap-1.5">
+                                <span className="shrink-0 bg-purple-100 text-purple-700 font-bold text-[10px] px-1.5 py-0.5 rounded-full">+{v.companion_count}</span>
+                                <div className="leading-snug">
+                                  {v.companions.split(", ").map((c, j) => (
+                                    <div key={j} className="whitespace-nowrap">{c}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : "—"}
+                          </td>
                           <td className="p-2.5 text-gray-700 whitespace-nowrap font-mono text-[11px]">{formatISODateString(v.check_in_time) || "—"}</td>
                           <td className="p-2.5 whitespace-nowrap font-mono text-[11px]">
                             {v.check_out_time ? (
@@ -418,7 +434,7 @@ const Reports = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={12} className="text-center py-12">
+                      <td colSpan={13} className="text-center py-12">
                         <FaFileAlt className="text-5xl text-gray-300 mx-auto mb-3" />
                         <p className="text-gray-500 text-sm">No visitors found.</p>
                         <p className="text-gray-400 text-xs mt-1">Try adjusting your filters or date range</p>

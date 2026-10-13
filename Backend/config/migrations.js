@@ -1170,5 +1170,46 @@ export const runMigrations = async (pool3) => {
     END
   `);
 
+  // ── VisitorPassCompanions: extra people accompanying the main visitor,
+  //    each with their own name + photo (captured at the gate) ──────────────
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='VisitorPassCompanions')
+    BEGIN
+      CREATE TABLE VisitorPassCompanions (
+        Id      INT IDENTITY(1,1) PRIMARY KEY,
+        PassId  VARCHAR(50)  NOT NULL,
+        Name    VARCHAR(255) NULL,
+        Phone   VARCHAR(20)  NULL,
+        Photo   TEXT         NULL
+      );
+      CREATE INDEX IX_VisitorPassCompanions_PassId ON VisitorPassCompanions(PassId);
+      PRINT 'Migration: Created VisitorPassCompanions table';
+    END
+  `);
+
+  // ── Backfill visitor profiles left blank by passes generated before the
+  //    pass flow started syncing details onto `visitors` — fills NULLs only,
+  //    from each visitor's latest pass, so it's a no-op once caught up ──────
+  await pool3.request().query(`
+    WITH LatestPass AS (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY visitor_id ORDER BY created_at DESC) AS rn
+      FROM visitor_passes
+    )
+    UPDATE v SET
+      photo_url       = COALESCE(v.photo_url, lp.visitor_photo),
+      email           = COALESCE(v.email, NULLIF(lp.visitor_email, '')),
+      company         = COALESCE(v.company, LEFT(NULLIF(lp.company, ''), 100)),
+      identity_type   = COALESCE(v.identity_type, NULLIF(lp.identity_type, '')),
+      identity_no     = COALESCE(v.identity_no, NULLIF(lp.identity_no, '')),
+      address         = COALESCE(v.address, lp.address),
+      city            = COALESCE(v.city, LEFT(NULLIF(lp.city, ''), 50)),
+      state           = COALESCE(v.state, LEFT(NULLIF(lp.state, ''), 50)),
+      vehicle_details = COALESCE(v.vehicle_details, NULLIF(lp.vehicle_details, ''))
+    FROM visitors v
+    JOIN LatestPass lp ON lp.visitor_id = v.visitor_id AND lp.rn = 1
+    WHERE v.photo_url IS NULL OR v.company IS NULL OR v.identity_type IS NULL
+       OR v.vehicle_details IS NULL OR v.email IS NULL
+  `);
+
   console.log("Migrations completed.");
 };
