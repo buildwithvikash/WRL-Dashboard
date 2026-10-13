@@ -2,8 +2,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getWrlLogoBase64, LOGO_ASPECT } from "./reportLogo.js";
 import { imageKey, resolveCheckpointImages } from "./auditImageResolver.js";
-import { formatDuration } from "./dateUtils.js";
+import { formatDuration, formatDateForDisplay } from "./dateUtils.js";
 import { buildAuditFilename } from "./auditFilename.js";
+import { passRateOf, passRateLevel } from "./auditPassRate.js";
 
 const imageFormat = (dataUrl) => {
   const match = /^data:image\/(\w+);base64,/.exec(dataUrl || "");
@@ -44,7 +45,7 @@ const fmtTime = (d) => {
   try {
     const dt = new Date(d);
     if (isNaN(dt)) return "—";
-    return dt.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
+    return dt.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true } /* same as formatDateTimeForDisplay (screens) */);
   } catch { return "—"; }
 };
 
@@ -242,7 +243,8 @@ export const generateAuditPDF = async (audit) => {
 
     const infoRows = infoFields.map((f) => {
       const value = infoData[f.id] ?? infoData[f.name] ?? "—";
-      return [f.name, String(value)];
+      // Same date format as the screens (stored as YYYY-MM-DD)
+      return [f.name, f.id === "date" ? formatDateForDisplay(value) : String(value)];
     });
 
     // Arrange in 2 columns side by side
@@ -402,7 +404,7 @@ export const generateAuditPDF = async (audit) => {
 
   const sum = audit.summary || {};
   const total = sum.total || 0;
-  const passRate = total > 0 ? Math.round((sum.pass / total) * 100) : 0;
+  const passRate = passRateOf(sum);
 
   fillRect(margin, y, W - margin * 2, 6, C.headerBg);
   fillRect(margin, y, 2, 6, C.primary);
@@ -417,7 +419,7 @@ export const generateAuditPDF = async (audit) => {
     { label: "Warning",           value: sum.warning || 0,color: C.warning },
     { label: "N/A",               value: sum.na || 0,     color: C.info    },
     { label: "Pending",           value: sum.pending || 0,color: C.gray    },
-    { label: "Pass Rate",         value: `${passRate}%`,  color: passRate >= 80 ? C.success : passRate >= 60 ? C.warning : C.danger },
+    { label: "Pass Rate",         value: `${passRate}%`,  color: { good: C.success, fair: C.warning, poor: C.danger }[passRateLevel(passRate)] },
   ];
 
   const boxW = (W - margin * 2) / summaryItems.length;

@@ -5,7 +5,7 @@
 // ──────────────────────────────────────────────────────────────────────────
 import { useNavigate } from "react-router-dom";
 import { FaClipboardList, FaArrowRight } from "react-icons/fa";
-import { getStatusConfig } from "../../constants/statusConfig";
+import { getStatusConfig, auditOpenPath } from "../../constants/statusConfig";
 import { fmtDate, relativeTime } from "../../utils/formatters";
 import { StatusBadge, ClickableRow, TableSkeleton, EmptyState } from "../../components/common";
 
@@ -60,7 +60,7 @@ export default function RecentAuditsTable({ loading, recentAudits }) {
                 return (
                   <ClickableRow
                     key={audit.id}
-                    onActivate={() => navigate(`/auditreport/audits/${audit.id}`)}
+                    onActivate={() => navigate(auditOpenPath(audit))}
                     className={`hover:bg-violet-50/30 ${idx % 2 === 1 ? "bg-slate-50/40" : ""}`}
                     aria-label={`Open audit ${audit.auditCode || audit.id}`}
                   >

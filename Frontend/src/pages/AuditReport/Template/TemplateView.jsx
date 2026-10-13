@@ -152,7 +152,7 @@ const TemplateTable = ({ sections = [], visibleCols }) => {
         <thead>
           <tr className="bg-gray-50 border-b-2 border-gray-200">
             {visibleCols
-              .filter((col) => col.name !== "Section")
+              .filter((col) => col.id !== "section") /* by id — a renamed column must still be dropped */
               .map((col) => (
                 <th
                   key={col.id}

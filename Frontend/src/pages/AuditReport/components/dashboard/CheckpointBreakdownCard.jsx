@@ -4,11 +4,12 @@
 // ──────────────────────────────────────────────────────────────────────────
 import { FaChartBar } from "react-icons/fa";
 import { ProgressBar, StackedBar, CardSkeleton } from "../../components/common";
+import { passRateLevel } from "../../../../utils/auditPassRate.js";
 
 export default function CheckpointBreakdownCard({ loading, cpAgg, cpPassRate }) {
   if (loading) return <CardSkeleton rows={5} />;
 
-  const rateColor = cpPassRate >= 80 ? "text-emerald-600" : cpPassRate >= 60 ? "text-amber-600" : "text-red-500";
+  const rateColor = { good: "text-emerald-600", fair: "text-amber-600", poor: "text-red-500" }[passRateLevel(cpPassRate)];
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">

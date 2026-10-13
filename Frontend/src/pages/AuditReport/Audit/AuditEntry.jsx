@@ -51,11 +51,13 @@ import useAuditData from "../../../hooks/useAuditData.js";
 import { useGetModelVariantsByAssemblyQuery } from "../../../redux/api/commonApi.js";
 import toast from "react-hot-toast";
 import { getCurrentShift } from "../../../utils/shiftUtils.js";
-import { formatDuration } from "../../../utils/dateUtils.js";
+import { formatDateForDisplay, formatDateTimeForDisplay, formatDuration } from "../../../utils/dateUtils.js";
 import { canUseGetUserMedia } from "../../../utils/mediaCapture.js";
 import { redrawAsJpeg } from "../../../utils/auditImageResolver.js";
+import { DEFAULT_IMAGE_CAPTURE_ITEMS } from "../constants/imageCapture.js";
 import { baseURL } from "../../../assets/assets.js";
 import { ROLES } from "../../../config/routes.config";
+import { passRateOf, passRateLevel } from "../../../utils/auditPassRate.js";
 
 // ==================== CONSTANTS ====================
 // Photos are shrunk in the browser before upload: phone cameras produce 4–8 MB
@@ -125,17 +127,6 @@ const STATUS_CONFIG = {
 
 const getCurrentDate = () => new Date().toISOString().split("T")[0];
 
-const formatDateForDisplay = (dateString) => {
-  if (!dateString) return "-";
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-    return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-  } catch {
-    return "-";
-  }
-};
-
 const generateId = () =>
   `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -163,7 +154,7 @@ const StatusBadge = ({ status }) => {
 const ProgressBar = ({ summary }) => {
   const done = summary.pass + summary.fail + summary.warning + summary.na;
   const pct = summary.total > 0 ? Math.round((done / summary.total) * 100) : 0;
-  const passRate = done > 0 ? Math.round((summary.pass / done) * 100) : 0;
+  const passRate = passRateOf(summary);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
@@ -200,7 +191,7 @@ const ProgressBar = ({ summary }) => {
         <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
           <span>Pass Rate</span>
           <span
-            className={`font-bold ${passRate >= 80 ? "text-green-600" : passRate >= 60 ? "text-amber-600" : "text-red-600"}`}
+            className={`font-bold ${{ good: "text-green-600", fair: "text-amber-600", poor: "text-red-600" }[passRateLevel(passRate)]}`}
           >
             {passRate}%
           </span>
@@ -743,9 +734,29 @@ const AuditEntry = () => {
   };
 
   // ==================== Migrate structures ====================
+  // New audits always get an Image Capture area: the template's own items if
+  // it defines any, otherwise the default photos (added as a section if the
+  // template has none). Items are required — the photo is the check.
+  const withDefaultImageCapture = (sections) => {
+    const ic = sections.find((s) => s.sectionType === "imageCapture");
+    if (ic?.stages?.some((st) => st.checkPoints?.length)) return sections;
+    const items = DEFAULT_IMAGE_CAPTURE_ITEMS.map((name) => ({
+      id: generateId(), checkPoint: name, method: "", specification: "",
+      observation: "", remark: "", status: "pending", required: true,
+    }));
+    if (!ic) {
+      return [...sections, {
+        id: generateId(), sectionName: "Image Capture", sectionType: "imageCapture",
+        stages: [{ id: generateId(), stageName: "Photos", checkPoints: items }],
+      }];
+    }
+    const [first = { id: generateId(), stageName: "Photos" }, ...rest] = ic.stages || [];
+    return sections.map((s) => (s === ic ? { ...s, stages: [{ ...first, checkPoints: items }, ...rest] } : s));
+  };
+
   const migrateTemplateStructure = useCallback((templateSections) => {
-    if (!Array.isArray(templateSections)) return [];
-    return templateSections.map((section) => {
+    if (!Array.isArray(templateSections)) return withDefaultImageCapture([]);
+    return withDefaultImageCapture(templateSections.map((section) => {
       if (section.stages && Array.isArray(section.stages)) {
         return {
           ...section,
@@ -780,7 +791,7 @@ const AuditEntry = () => {
           },
         ],
       };
-    });
+    }));
   }, []);
 
   const migrateAuditSections = useCallback((auditSections) => {
@@ -1956,11 +1967,13 @@ const AuditEntry = () => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* The audit's own date/shift once recorded — the live clock only
+                  for a brand-new audit (it used to show today's date on old audits). */}
               <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600 border border-red-100 flex items-center gap-1">
-                <FaCalendarAlt size={10} /> {formatDateForDisplay(currentDate)}
+                <FaCalendarAlt size={10} /> {formatDateForDisplay(infoData.date || currentDate)}
               </span>
               <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1">
-                <FaClock size={10} /> {currentShift.label}
+                <FaClock size={10} /> {infoData.shift ? String(infoData.shift).replace(/^\w/, (c) => c.toUpperCase()) : currentShift.label}
               </span>
               {/* Audit Start Time */}
               <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1" title="Audit started at">
@@ -2271,9 +2284,11 @@ const AuditEntry = () => {
                 </div>
               </div>
 
-              <div className="bg-white divide-y divide-gray-100">
+              {/* Two columns from lg up so the details don't stretch the
+                  title panel into a tall empty block (same as AuditView). */}
+              <div className="bg-white grid grid-cols-1 lg:grid-cols-2 content-start">
                 {template?.headerConfig?.showFormatNo !== false && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <MdFormatListNumbered className="text-xl text-indigo-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -2286,7 +2301,7 @@ const AuditEntry = () => {
                   </div>
                 )}
                 {template?.headerConfig?.showRevNo !== false && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <MdUpdate className="text-xl text-green-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -2299,7 +2314,7 @@ const AuditEntry = () => {
                   </div>
                 )}
                 {template?.headerConfig?.showRevDate !== false && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <MdDateRange className="text-xl text-purple-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -2312,37 +2327,32 @@ const AuditEntry = () => {
                   </div>
                 )}
                 {/* Audit Start */}
-                <div className="p-3.5 flex items-center gap-3">
+                <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                   <FaClock className="text-lg text-indigo-500 flex-shrink-0" />
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
                       Audit Start
                     </span>
                     <span className="font-bold text-gray-700 text-sm">
-                      {(() => {
-                        const t = auditData.startedAt || startedAtRef.current;
-                        return t ? new Date(t).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
-                      })()}
+                      {formatDateTimeForDisplay(auditData.startedAt || startedAtRef.current)}
                     </span>
                   </div>
                 </div>
                 {/* Audit End */}
-                <div className="p-3.5 flex items-center gap-3">
+                <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                   <FaCheckCircle className="text-lg text-emerald-500 flex-shrink-0" />
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
                       Audit End
                     </span>
                     <span className="font-bold text-gray-700 text-sm">
-                      {auditData.submittedAt
-                        ? new Date(auditData.submittedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true })
-                        : "—"}
+                      {auditData.submittedAt ? formatDateTimeForDisplay(auditData.submittedAt) : "—"}
                     </span>
                   </div>
                 </div>
                 {/* Total Time */}
                 {auditData.submittedAt && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <FaHourglassHalf className="text-lg text-purple-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -3066,56 +3076,9 @@ const AuditEntry = () => {
               </div>
             </div>
 
-            {/* ==================== LQE INLINE REVIEW PANEL ==================== */}
-            {isLQEReview && (
-              <div className="border-t border-blue-100 bg-blue-50/40 px-6 py-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <FaUserCheck className="text-blue-500" />
-                  <h3 className="text-sm font-black text-blue-800">Review Decision</h3>
-                  <span className="text-xs text-blue-500 ml-1">— Add remarks and approve or reject this audit</span>
-                </div>
-                <div className="mb-4">
-                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
-                    Remarks <span className="text-red-400 font-normal normal-case">(required for rejection)</span>
-                  </label>
-                  <textarea
-                    value={approvalComments}
-                    onChange={(e) => setApprovalComments(e.target.value)}
-                    placeholder="Add review remarks or rejection reason…"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none transition-all bg-white"
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={async () => {
-                      if (!approvalComments.trim()) { toast.error("Rejection reason is required"); return; }
-                      setApprovalModal({ open: true, action: 'reject' });
-                    }}
-                    disabled={approving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-40 shadow-sm shadow-red-200"
-                  >
-                    <FaTimesCircle size={13} /> Reject Audit
-                  </button>
-                  <button
-                    onClick={() => setApprovalModal({ open: true, action: 'rework' })}
-                    disabled={approving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-40 shadow-sm shadow-orange-200"
-                  >
-                    <FaTools size={13} /> Send for Rework
-                  </button>
-                  <button
-                    onClick={() => setApprovalModal({ open: true, action: 'approve' })}
-                    disabled={approving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-40 shadow-sm shadow-emerald-200"
-                  >
-                    <FaCheckCircle size={13} /> Approve Audit
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* ==================== FOOTER SUBMIT ==================== */}
+            {/* Reviewers (LQE) decide via the sticky header buttons — one set,
+                always in reach on long audits; remarks go in the confirm dialog. */}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
               <p className="text-xs text-gray-400">
                 {summary.pending > 0
@@ -3145,27 +3108,6 @@ const AuditEntry = () => {
                     ) : (
                       <><FaPaperPlane size={13} /> Submit Audit</>
                     )}
-                  </button>
-                </div>
-              ) : isLQEReview ? (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => { setApprovalComments(""); setApprovalModal({ open: true, action: 'reject' }); }}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition-all"
-                  >
-                    <FaTimesCircle size={13} /> Reject
-                  </button>
-                  <button
-                    onClick={() => { setApprovalComments(""); setApprovalModal({ open: true, action: 'rework' }); }}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-sm transition-all"
-                  >
-                    <FaTools size={13} /> Rework
-                  </button>
-                  <button
-                    onClick={() => { setApprovalComments(""); setApprovalModal({ open: true, action: 'approve' }); }}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all"
-                  >
-                    <FaCheckCircle size={13} /> Approve Audit
                   </button>
                 </div>
               ) : null}

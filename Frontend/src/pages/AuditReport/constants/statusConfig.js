@@ -56,6 +56,17 @@ export const DEFAULT_STATUS = AUDIT_STATUS.draft;
 export const getStatusConfig = (status) => AUDIT_STATUS[status] || DEFAULT_STATUS;
 
 /**
+ * Where "open this audit" goes: still being filled in (draft/rework) → the
+ * editor; anything else → the read-only view page — so an audit looks the
+ * same however it was reached. Explicit "Edit" buttons and the approval
+ * queue (reviewers decide in the editor) link to the editor directly.
+ */
+export const auditOpenPath = (audit) =>
+  ["draft", "rework"].includes(audit?.status)
+    ? `/auditreport/audits/${audit.id}`
+    : `/auditreport/audits/${audit.id}/view`;
+
+/**
  * Checkpoint-level result tokens (pass/fail/warning/na/pending) — distinct
  * from audit-level status above. Used by checkpoint breakdown bars/badges.
  */

@@ -23,6 +23,7 @@ import {
 import { MdPendingActions } from "react-icons/md";
 import { HiClipboardDocumentCheck } from "react-icons/hi2";
 import useAuditData from "../../../hooks/useAuditData";
+import { auditOpenPath } from "../constants/statusConfig";
 import { useLazyGetModelVariantsByAssemblyQuery } from "../../../redux/api/commonApi";
 import toast from "react-hot-toast";
 
@@ -592,9 +593,7 @@ const SerialScan = () => {
                       {recentAudits.map((audit, idx) => (
                         <tr
                           key={audit.id}
-                          onClick={() =>
-                            navigate(`/auditreport/audits/${audit.id}`)
-                          }
+                          onClick={() => navigate(auditOpenPath(audit))}
                           className={`hover:bg-violet-50/30 transition-colors cursor-pointer ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
                           <td className="px-4 py-2.5 text-[11px] text-gray-400">
