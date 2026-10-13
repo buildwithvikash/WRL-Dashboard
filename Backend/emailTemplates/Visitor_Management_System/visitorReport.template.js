@@ -23,6 +23,7 @@ export const sendVisitorReportMail = async (visitors) => {
       { header: "Department", key: "department_name", width: 15 },
       { header: "Employee", key: "employee_name", width: 20 },
       { header: "Purpose", key: "purpose_of_visit", width: 25 },
+      { header: "Accompanying People", key: "companions", width: 35 },
       { header: "Check In", key: "check_in_time", width: 22 },
       { header: "Check Out", key: "check_out_time", width: 22 },
     ];
@@ -39,6 +40,7 @@ export const sendVisitorReportMail = async (visitors) => {
         department_name: v.department_name,
         employee_name: v.employee_name,
         purpose_of_visit: v.purpose_of_visit,
+        companions: v.companions || "-",
         check_in_time: v.check_in_time
           ? new Date(v.check_in_time).toLocaleString()
           : "-",

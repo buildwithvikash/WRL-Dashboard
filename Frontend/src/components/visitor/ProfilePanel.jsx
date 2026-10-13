@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { CgProfile } from "react-icons/cg";
 import {
   FaTimes, FaPhone, FaEnvelope, FaBuilding, FaIdCard, FaCar, FaClock,
 } from "react-icons/fa";
 import { formatISODateString } from "../../utils/dateUtils";
+import CompanionList from "./CompanionList.jsx";
 
 const PresenceBadge = ({ checkedOut }) =>
   checkedOut ? (
@@ -21,6 +23,8 @@ const PresenceBadge = ({ checkedOut }) =>
 // pass it down as `detail = { visitor, logs, host }` (host = logs[0], the
 // most recent visit, used for "who they're here to see" + presence).
 const ProfilePanel = ({ visitorId, detail, loading, onClose }) => {
+  const [zoomed, setZoomed] = useState(null);
+
   if (!visitorId) {
     return (
       <div className="bg-white shadow-md rounded-xl border border-gray-100 p-6 h-full flex flex-col items-center justify-center text-center">
@@ -52,7 +56,8 @@ const ProfilePanel = ({ visitorId, detail, loading, onClose }) => {
               <img
                 src={detail.visitor.visitor_photo}
                 alt={detail.visitor.visitor_name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                onClick={() => setZoomed(detail.visitor.visitor_photo)}
+                className="w-16 h-16 rounded-full object-cover border-2 border-blue-200 cursor-zoom-in"
               />
             ) : (
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200 shrink-0">
@@ -132,10 +137,35 @@ const ProfilePanel = ({ visitorId, detail, loading, onClose }) => {
                   {log.token && (
                     <p className="text-[10px] text-gray-400 mt-1">Token: <span className="font-mono text-gray-600">{log.token}</span></p>
                   )}
+                  {log.companions?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <p className="text-[10px] font-semibold text-gray-500 mb-1">
+                        Accompanied by {log.companions.length}
+                      </p>
+                      <CompanionList companions={log.companions} onPhotoClick={setZoomed} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {zoomed && (
+        <div
+          className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
+          onClick={() => setZoomed(null)}
+        >
+          <div className="relative max-w-3xl" onClick={(e) => e.stopPropagation()}>
+            <img src={zoomed} alt="Visitor" className="max-h-[80vh] rounded-lg shadow-2xl border-4 border-white" />
+            <button
+              onClick={() => setZoomed(null)}
+              className="absolute -top-4 -right-4 bg-red-500 text-white rounded-full p-2 shadow-lg hover:bg-red-600 transition cursor-pointer"
+            >
+              <FaTimes className="text-lg" />
+            </button>
+          </div>
         </div>
       )}
     </div>

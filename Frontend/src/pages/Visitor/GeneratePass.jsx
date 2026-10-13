@@ -9,6 +9,162 @@ import { useNavigate } from "react-router-dom";
 import { useGetEmployeesWithDepartmentsQuery } from "../../redux/api/commonApi.js";
 import { canUseGetUserMedia } from "../../utils/mediaCapture.js";
 
+// Same live-camera-with-native-fallback concept as the main visitor photo
+// capture, packaged as a self-contained dialog so it can be reused per
+// companion without touching that already-working flow.
+const CameraCaptureDialog = ({ title, onCapture, onClose }) => {
+  const [captured, setCaptured] = useState(null);
+  const [error, setError] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const nativeCamRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  useEffect(() => stopStream, []);
+
+  const startCamera = async () => {
+    if (!canUseGetUserMedia()) {
+      nativeCamRef.current?.click();
+      return;
+    }
+    try {
+      stopStream();
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch (firstErr) {
+        if (firstErr.name === "NotAllowedError" || firstErr.name === "NotFoundError") throw firstErr;
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+        await video.play().catch((playErr) => console.warn("Autoplay prevented:", playErr));
+      }
+      setError(null);
+    } catch (err) {
+      console.error("Camera access error:", err);
+      if (err.name === "NotAllowedError") setError("Camera access denied. Please allow camera permissions.");
+      else if (err.name === "NotFoundError") setError("No camera device found. Please connect one.");
+      else if (err.name === "OverconstrainedError") setError("Could not open the selected camera. Try another one.");
+      else if (err.name === "NotReadableError") setError("Camera might be in use by another application.");
+      else setError("Could not access camera. Please check device connection.");
+      nativeCamRef.current?.click();
+    }
+  };
+
+  useEffect(() => {
+    startCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !video.videoWidth) {
+      toast.error("Camera is still starting. Please try again in a moment.");
+      return;
+    }
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    setCaptured(canvas.toDataURL("image/jpeg", 0.92));
+    stopStream();
+  };
+
+  const handleNativeCapture = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { setCaptured(reader.result); setError(null); };
+    reader.onerror = () => setError("Could not read the captured photo. Please try again.");
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-4 w-full max-w-sm flex flex-col items-center gap-3">
+        <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+        {error && (
+          <div className="text-red-500 text-xs bg-red-50 p-2 rounded-lg w-full text-center">{error}</div>
+        )}
+        <input
+          ref={nativeCamRef}
+          type="file"
+          accept="image/*"
+          capture="user"
+          className="hidden"
+          onChange={handleNativeCapture}
+        />
+        {!captured ? (
+          <>
+            {canUseGetUserMedia() && (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{ transform: "scaleX(-1)" }}
+                className="bg-gray-50 border border-gray-200 rounded-lg w-full"
+              />
+            )}
+            <div className="flex gap-3">
+              <button type="button" onClick={startCamera} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 cursor-pointer">
+                Open Camera
+              </button>
+              {canUseGetUserMedia() && (
+                <button type="button" onClick={capturePhoto} className="px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 cursor-pointer">
+                  Capture
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <img src={captured} alt="Captured" className="rounded-lg border border-gray-200 w-full" />
+            <button type="button" onClick={() => setCaptured(null)} className="px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 cursor-pointer">
+              Retake
+            </button>
+          </>
+        )}
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+        <div className="flex gap-3 w-full mt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!captured}
+            onClick={() => { stopStream(); onCapture(captured); }}
+            className={`flex-1 px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition ${
+              captured ? "bg-purple-500 hover:bg-purple-600 cursor-pointer" : "bg-gray-300 cursor-not-allowed"
+            }`}
+          >
+            Use Photo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const GeneratePass = () => {
   const { user } = useSelector((store) => store.auth);
   const navigate = useNavigate();
@@ -38,6 +194,7 @@ const GeneratePass = () => {
     purposeOfVisit: "",
     createdBy: user?.id,
   });
+  const [companions, setCompanions] = useState([]);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
@@ -287,6 +444,37 @@ const GeneratePass = () => {
     );
   };
 
+  // Companion count tracks "No. of People" automatically (that field counts
+  // everyone including the main visitor, so companions = noOfPeople - 1),
+  // preserving names/photos already entered when the count changes.
+  useEffect(() => {
+    const target = Math.max(0, (parseInt(visitorData.noOfPeople, 10) || 1) - 1);
+    setCompanions((prev) => {
+      if (prev.length === target) return prev;
+      if (prev.length < target) {
+        return [...prev, ...Array.from({ length: target - prev.length }, () => ({ name: "", phone: "", photo: null }))];
+      }
+      return prev.slice(0, target);
+    });
+  }, [visitorData.noOfPeople]);
+
+  const [cameraForIndex, setCameraForIndex] = useState(null);
+
+  const updateCompanionName = (index, value) =>
+    setCompanions((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, name: value } : c)),
+    );
+
+  const updateCompanionPhone = (index, value) =>
+    setCompanions((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, phone: value } : c)),
+    );
+
+  const updateCompanionPhoto = (index, dataUrl) =>
+    setCompanions((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, photo: dataUrl } : c)),
+    );
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setVisitorData((prev) => ({
@@ -327,6 +515,7 @@ const GeneratePass = () => {
       setLoading(true);
       const payload = {
         ...visitorData,
+        companions,
       };
       const res = await axios.post(`${baseURL}visitor/generate-pass`, payload);
       if (res?.data?.success) {
@@ -480,6 +669,61 @@ const GeneratePass = () => {
                   className="w-full"
                 />
               </div>
+              {companions.length > 0 && (
+                <div className="col-span-2 w-full">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    People Accompanying Visitor
+                  </label>
+                  {companions.map((c, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 mb-2 p-2 border border-gray-200 rounded-lg"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setCameraForIndex(i)}
+                        className="shrink-0 cursor-pointer"
+                      >
+                        {c.photo ? (
+                          <img
+                            src={c.photo}
+                            alt={c.name || "Companion"}
+                            className="w-10 h-10 rounded-full object-cover border border-gray-300"
+                          />
+                        ) : (
+                          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 border border-gray-300 text-gray-400 text-xs">
+                            Photo
+                          </span>
+                        )}
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        value={c.name}
+                        onChange={(e) => updateCompanionName(i, e.target.value)}
+                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Phone No."
+                        value={c.phone}
+                        onChange={(e) => updateCompanionPhone(i, e.target.value)}
+                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                  ))}
+                  {cameraForIndex !== null && (
+                    <CameraCaptureDialog
+                      title={`Capture photo — Person ${cameraForIndex + 1}`}
+                      onCapture={(dataUrl) => {
+                        updateCompanionPhoto(cameraForIndex, dataUrl);
+                        setCameraForIndex(null);
+                      }}
+                      onClose={() => setCameraForIndex(null)}
+                    />
+                  )}
+                </div>
+              )}
               <div className="w-full">
                 <InputField
                   label="Nationality"

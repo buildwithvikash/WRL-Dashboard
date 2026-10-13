@@ -2,6 +2,7 @@ import sql from "mssql";
 import { dbConfig3 } from "../../config/db.config.js";
 import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
+import { COMPANIONS_APPLY } from "./reports.controller.js";
 
 // Get All Visitors (Paginated, searchable) — one row per visitor, keyed to
 // their most recent visit. search/from/to are applied server-side so
@@ -29,7 +30,11 @@ export const getAllVisitors = tryCatch(async (req, res, next) => {
     if (to) req.input("toDate", sql.DateTime, new Date(`${to}T23:59:59`));
     return req;
   };
-  if (search) conditions.push("(v.name LIKE @search OR v.company LIKE @search)");
+  if (search)
+    conditions.push(`(v.name LIKE @search OR v.company LIKE @search OR EXISTS (
+      SELECT 1 FROM VisitorPassCompanions c2
+      JOIN visitor_passes vp2 ON vp2.pass_id = c2.PassId
+      WHERE vp2.visitor_id = v.visitor_id AND c2.Name LIKE @search))`);
   if (from) conditions.push("vl.check_in_time >= @fromDate");
   if (to) conditions.push("vl.check_in_time <= @toDate");
   if (status === "onsite") conditions.push("vl.check_out_time IS NULL");
@@ -75,7 +80,10 @@ export const getAllVisitors = tryCatch(async (req, res, next) => {
         vl.check_out_time,
         vp.pass_id,
         v.photo_url,
-        pc.total_passes
+        pc.total_passes,
+        vp.no_of_people,
+        comp.companion_count,
+        comp.companions
       FROM visitors v
       INNER JOIN LatestVisit lv ON lv.visitor_id = v.visitor_id
       INNER JOIN visitor_passes vp ON vp.visitor_id = v.visitor_id
@@ -85,6 +93,7 @@ export const getAllVisitors = tryCatch(async (req, res, next) => {
       INNER JOIN users u ON u.employee_id = vp.employee_to_visit
       INNER JOIN departments d ON d.deptCode = vp.department_to_visit
       LEFT JOIN PassCount pc ON pc.visitor_id = v.visitor_id
+      ${COMPANIONS_APPLY}
       ${whereClause}
     )
   `;
@@ -173,7 +182,8 @@ export const getVisitorDetails = tryCatch(async (req, res, next) => {
         u.name AS employee_name,
         vp.purpose_of_visit,
         vl.check_in_time,
-        vl.check_out_time
+        vl.check_out_time,
+        vp.no_of_people
       FROM visitor_passes vp
       INNER JOIN visit_logs vl ON vl.unique_pass_id = vp.pass_id
       INNER JOIN departments d ON d.deptCode = vp.department_to_visit
@@ -182,12 +192,26 @@ export const getVisitorDetails = tryCatch(async (req, res, next) => {
       ORDER BY vl.check_in_time DESC
     `);
 
+  /* ---------- Companions (with photos) per pass ---------- */
+  const companions = await pool
+    .request()
+    .input("VisitorId", sql.VarChar(50), visitorId).query(`
+      SELECT c.PassId, c.Name AS name, c.Phone AS phone, c.Photo AS photo
+      FROM VisitorPassCompanions c
+      JOIN visitor_passes vp ON vp.pass_id = c.PassId
+      WHERE vp.visitor_id = @VisitorId
+      ORDER BY c.Id
+    `);
+
   await pool.close();
+
+  const byPass = {};
+  for (const { PassId, ...c } of companions.recordset) (byPass[PassId] ||= []).push(c);
 
   res.status(200).json({
     success: true,
     message: "Visitor full history fetched successfully",
     visitor: visitorInfo.recordset[0],
-    visit_logs: visitLogs.recordset,
+    visit_logs: visitLogs.recordset.map((log) => ({ ...log, companions: byPass[log.pass_id] || [] })),
   });
 });

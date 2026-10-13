@@ -207,12 +207,26 @@ export const getVisitorLogs = tryCatch(async (_, res, next) => {
       ORDER BY vp.created_at DESC
     `);
 
+  const companions = await pool
+    .request()
+    .input("StartDate", sql.DateTime, istStart)
+    .input("EndDate", sql.DateTime, istEnd).query(`
+      SELECT c.PassId, c.Name AS name, c.Phone AS phone, c.Photo AS photo
+      FROM VisitorPassCompanions c
+      JOIN visitor_passes vp ON vp.pass_id = c.PassId
+      WHERE vp.created_at BETWEEN @StartDate AND @EndDate
+      ORDER BY c.Id
+    `);
+
   await pool.close();
+
+  const byPass = {};
+  for (const { PassId, ...c } of companions.recordset) (byPass[PassId] ||= []).push(c);
 
   res.status(200).json({
     success: true,
     message: "Visitor logs fetched successfully",
     count: result.recordset.length,
-    data: result.recordset,
+    data: result.recordset.map((row) => ({ ...row, companions: byPass[row.pass_id] || [] })),
   });
 });
