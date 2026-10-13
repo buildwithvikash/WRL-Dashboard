@@ -1,5 +1,4 @@
 import sql from "mssql";
-import { dbConfig3 } from "../../config/db.config.js";
 import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
 import { generateTemplateCode } from "../../utils/generateCode.js";
@@ -14,6 +13,7 @@ import { computeTemplateHash, verifyTemplateHash, computeTemplateStats } from ".
 import { assembleContent, disassembleContent } from "../../utils/storage/templateContent.js";
 import { validateTemplatePayload } from "../../utils/validation/templateSchema.js";
 import { diffTemplateConfigs, flattenTemplateDiff } from "../../utils/diff/templateDiff.js";
+import { actorOf } from "../../utils/requestActor.js";
 
 const PARENT_COLUMNS = `
   Id, TemplateCode, TemplateFileName, Name, Description, Category, Version, IsActive,
@@ -23,6 +23,19 @@ const PARENT_COLUMNS = `
 `;
 
 const EMPTY_CONTENT = { headerConfig: {}, infoFields: [], columns: [], defaultSections: [] };
+
+// Approval rules enforced server-side (the API is callable directly): saving
+// content can only produce a draft or a submission; approve/reject happen via
+// updateTemplate, by an approver role, recorded as the logged-in user.
+const AUTHOR_STATUSES = ["draft", "pending_approval"];
+const ALL_STATUSES = [...AUTHOR_STATUSES, "approved", "rejected"];
+const TEMPLATE_APPROVER_ROLES = ["super admin", "quality manager"];
+
+const assertAuthorStatus = (approvalStatus) => {
+  if (approvalStatus !== undefined && !AUTHOR_STATUSES.includes(approvalStatus)) {
+    throw new AppError(`approvalStatus must be one of: ${AUTHOR_STATUSES.join(", ")}`, 400);
+  }
+};
 
 // ── History helper ────────────────────────────────────────────────────────────
 const logTemplateHistory = async (pool, { templateId, action, actionBy, comments, previousStatus, newStatus, fieldChanges, versionNumber, previousVersion, createdFromVersion }) => {
@@ -90,11 +103,25 @@ const loadContentForTemplate = async (pool, parent, version = null) => {
   return { ...EMPTY_CONTENT };
 };
 
-const findActiveTemplateByName = async (pool, name) => {
+// Name match ignores case and surrounding spaces ("X" and " x " collide).
+const findActiveTemplateByName = async (pool, name, exceptId = null) => {
   const result = await pool.request()
-    .input("name", sql.NVarChar, name)
-    .query(`SELECT TOP 1 ${PARENT_COLUMNS} FROM AuditTemplates WHERE LOWER(Name) = LOWER(@name) AND IsActive = 1 AND IsDeleted = 0`);
+    .input("name", sql.NVarChar(255), String(name).trim())
+    .input("exceptId", sql.Int, exceptId)
+    .query(`
+      SELECT TOP 1 ${PARENT_COLUMNS} FROM AuditTemplates
+      WHERE LOWER(LTRIM(RTRIM(Name))) = LOWER(@name) AND IsActive = 1 AND IsDeleted = 0
+        AND (@exceptId IS NULL OR Id <> @exceptId)`);
   return result.recordset[0] || null;
+};
+
+// Rename / new version / re-activation must not produce two active templates
+// with the same name (auditors couldn't tell which one to pick). Backed by the
+// filtered unique index UX_AuditTemplates_ActiveName (see migrations.js).
+const assertNameAvailable = async (pool, name, templateId) => {
+  if (await findActiveTemplateByName(pool, name, templateId)) {
+    throw new AppError(`An active template named "${String(name).trim()}" already exists.`, 409);
+  }
 };
 
 const getTemplateByIdInternal = async (pool, id) => {
@@ -118,7 +145,7 @@ export const getAllTemplates = tryCatch(async (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const wantsHistory = includeHistory === "true";
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  const pool = global.pool3;
   const request = pool.request();
 
   let whereConditions = ["IsDeleted=0"];
@@ -196,7 +223,6 @@ export const getAllTemplates = tryCatch(async (req, res) => {
     }),
   );
 
-  await pool.close();
 
   res.status(200).json({
     success: true,
@@ -214,22 +240,18 @@ export const checkTemplateName = tryCatch(async (req, res) => {
   const { name } = req.query;
   if (!name) throw new AppError("Name query param is required", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const existing = await findActiveTemplateByName(pool, name);
-    if (!existing) {
-      return res.status(200).json({ success: true, exists: false, data: null });
-    }
-    const data = await getTemplateByIdInternal(pool, existing.Id);
-    res.status(200).json({
-      success: true,
-      exists: true,
-      message: `An active template named "${name}" already exists.`,
-      data,
-    });
-  } finally {
-    await pool.close();
+  const pool = global.pool3;
+  const existing = await findActiveTemplateByName(pool, name);
+  if (!existing) {
+    return res.status(200).json({ success: true, exists: false, data: null });
   }
+  const data = await getTemplateByIdInternal(pool, existing.Id);
+  res.status(200).json({
+    success: true,
+    exists: true,
+    message: `An active template named "${name}" already exists.`,
+    data,
+  });
 });
 
 // Get template by ID
@@ -239,40 +261,36 @@ export const getTemplateById = tryCatch(async (req, res) => {
 
   if (!id) throw new AppError("Template ID is required", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const result = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  const pool = global.pool3;
+  const result = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
 
-    if (result.recordset.length === 0) throw new AppError("Template not found", 404);
+  if (result.recordset.length === 0) throw new AppError("Template not found", 404);
 
-    const template = result.recordset[0];
+  const template = result.recordset[0];
 
-    let content;
-    if (template.CurrentVersionContentId) {
-      // SQL-backed — source of truth, no file I/O, no hash-verify-against-disk
-      // needed (SQL row durability replaces that threat model).
-      content = await loadContentForTemplate(pool, template, version);
-    } else {
-      // Legacy, unmigrated row — preserve the original file-read + lazy
-      // hash-backfill + integrity-check behaviour exactly.
-      content = await loadLegacyContentWithBackfill(pool, template);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Template retrieved successfully",
-      data: {
-        ...template,
-        HeaderConfig: content.headerConfig,
-        InfoFields: content.infoFields,
-        Columns: content.columns,
-        DefaultSections: content.defaultSections,
-      },
-    });
-  } finally {
-    await pool.close();
+  let content;
+  if (template.CurrentVersionContentId) {
+    // SQL-backed — source of truth, no file I/O, no hash-verify-against-disk
+    // needed (SQL row durability replaces that threat model).
+    content = await loadContentForTemplate(pool, template, version);
+  } else {
+    // Legacy, unmigrated row — preserve the original file-read + lazy
+    // hash-backfill + integrity-check behaviour exactly.
+    content = await loadLegacyContentWithBackfill(pool, template);
   }
+
+  res.status(200).json({
+    success: true,
+    message: "Template retrieved successfully",
+    data: {
+      ...template,
+      HeaderConfig: content.headerConfig,
+      InfoFields: content.infoFields,
+      Columns: content.columns,
+      DefaultSections: content.defaultSections,
+    },
+  });
 });
 
 // Legacy-row helper — identical logic to the pre-Phase-5 getTemplateById,
@@ -357,135 +375,130 @@ export const createTemplate = tryCatch(async (req, res) => {
     infoFields,
     columns,
     defaultSections,
-    createdByUser,
   } = req.body;
 
   if (!name) throw new AppError("Template name is required", 400);
+  assertAuthorStatus(approvalStatus);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const existing = await findActiveTemplateByName(pool, name);
-    if (existing) {
-      const data = await getTemplateByIdInternal(pool, existing.Id);
-      return res.status(200).json({
-        success: true,
-        exists: true,
-        message: `An active template named "${name}" already exists.`,
-        data,
-      });
-    }
-
-    validateTemplatePayload({ headerConfig, infoFields, columns, defaultSections });
-
-    const templateCode = await generateTemplateCode();
-    const rawCreatedBy = req.user?.userCode || req.user?.name || createdByUser;
-    const createdBy = (rawCreatedBy != null && String(rawCreatedBy).trim()) ? String(rawCreatedBy).trim() : "SYSTEM";
-
-    const content = disassembleContent({ headerConfig, infoFields, columns, defaultSections });
-
-    const transaction = new sql.Transaction(pool);
-    await transaction.begin();
-
-    let template;
-    let contentId;
-    try {
-      const result = await new sql.Request(transaction)
-        .input("templateCode", sql.NVarChar(50), templateCode)
-        .input("name", sql.NVarChar, name)
-        .input("description", sql.NVarChar, description || null)
-        .input("category", sql.NVarChar(100), category || null)
-        .input("version", sql.NVarChar(20), "01")
-        .input("isActive", sql.Bit, isActive !== false ? 1 : 0)
-        .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
-        .input("models", sql.NVarChar, models ? JSON.stringify(models) : null)
-        .input("createdBy", sql.NVarChar(200), createdBy)
-        .input("templateHash", sql.NVarChar(64), content.hash)
-        .input("templateSize", sql.Int, content.sizeBytes)
-        .input("sectionCount", sql.Int, content.stats.sectionCount)
-        .input("stageCount", sql.Int, content.stats.stageCount)
-        .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-        .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-        .query(`
-          INSERT INTO AuditTemplates (
-            TemplateCode, Name, Description, Category, Version, IsActive,
-            Models, ApprovalStatus, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
-            TemplateHash, TemplateSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            @templateCode, @name, @description, @category, @version, @isActive,
-            @models, @approvalStatus, @createdBy, GETDATE(), @createdBy, GETDATE(),
-            @templateHash, @templateSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount
-          );
-        `);
-      template = result.recordset[0];
-
-      const contentResult = await new sql.Request(transaction)
-        .input("templateId", sql.Int, template.Id)
-        .input("version", sql.NVarChar(20), "01")
-        .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
-        .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
-        .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
-        .input("defaultSections", sql.NVarChar(sql.MAX), content.defaultSectionsJson)
-        .input("contentHash", sql.NVarChar(64), content.hash)
-        .input("contentSize", sql.Int, content.sizeBytes)
-        .input("sectionCount", sql.Int, content.stats.sectionCount)
-        .input("stageCount", sql.Int, content.stats.stageCount)
-        .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-        .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-        .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
-        .input("createdBy", sql.NVarChar(200), createdBy)
-        .query(`
-          INSERT INTO AuditTemplateContent (
-            TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
-            ContentHash, ContentSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
-            ApprovalStatus, IsActiveVersion, ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
-          )
-          OUTPUT INSERTED.Id
-          VALUES (
-            @templateId, @version, @headerConfig, @infoFields, @columns, @defaultSections,
-            @contentHash, @contentSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount,
-            @approvalStatus, 1, 'create', NULL, @createdBy, GETDATE()
-          );
-        `);
-      contentId = contentResult.recordset[0].Id;
-
-      await new sql.Request(transaction)
-        .input("id", sql.Int, template.Id)
-        .input("contentId", sql.Int, contentId)
-        .query(`UPDATE AuditTemplates SET CurrentVersionContentId = @contentId WHERE Id = @id`);
-
-      await transaction.commit();
-    } catch (err) {
-      await transaction.rollback();
-      throw err;
-    }
-
-    await logTemplateHistory(pool, {
-      templateId: template.Id,
-      action: "created",
-      actionBy: createdBy,
-      versionNumber: "01",
-      newStatus: approvalStatus || "draft",
-      fieldChanges: [{ field: "Name", from: null, to: name }],
-    });
-
-    res.status(201).json({
+  const pool = global.pool3;
+  const existing = await findActiveTemplateByName(pool, name);
+  if (existing) {
+    const data = await getTemplateByIdInternal(pool, existing.Id);
+    return res.status(200).json({
       success: true,
-      exists: false,
-      message: "Template created successfully",
-      data: {
-        ...template,
-        CurrentVersionContentId: contentId,
-        HeaderConfig: headerConfig || {},
-        InfoFields: infoFields || [],
-        Columns: columns || [],
-        DefaultSections: defaultSections || [],
-      },
+      exists: true,
+      message: `An active template named "${name}" already exists.`,
+      data,
     });
-  } finally {
-    await pool.close();
   }
+
+  validateTemplatePayload({ headerConfig, infoFields, columns, defaultSections });
+
+  const templateCode = await generateTemplateCode();
+  const createdBy = actorOf(req);
+
+  const content = disassembleContent({ headerConfig, infoFields, columns, defaultSections });
+
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  let template;
+  let contentId;
+  try {
+    const result = await new sql.Request(transaction)
+      .input("templateCode", sql.NVarChar(50), templateCode)
+      .input("name", sql.NVarChar, String(name).trim())
+      .input("description", sql.NVarChar, description || null)
+      .input("category", sql.NVarChar(100), category || null)
+      .input("version", sql.NVarChar(20), "01")
+      .input("isActive", sql.Bit, isActive !== false ? 1 : 0)
+      .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
+      .input("models", sql.NVarChar, models ? JSON.stringify(models) : null)
+      .input("createdBy", sql.NVarChar(200), createdBy)
+      .input("templateHash", sql.NVarChar(64), content.hash)
+      .input("templateSize", sql.Int, content.sizeBytes)
+      .input("sectionCount", sql.Int, content.stats.sectionCount)
+      .input("stageCount", sql.Int, content.stats.stageCount)
+      .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+      .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+      .query(`
+        INSERT INTO AuditTemplates (
+          TemplateCode, Name, Description, Category, Version, IsActive,
+          Models, ApprovalStatus, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
+          TemplateHash, TemplateSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @templateCode, @name, @description, @category, @version, @isActive,
+          @models, @approvalStatus, @createdBy, GETDATE(), @createdBy, GETDATE(),
+          @templateHash, @templateSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount
+        );
+      `);
+    template = result.recordset[0];
+
+    const contentResult = await new sql.Request(transaction)
+      .input("templateId", sql.Int, template.Id)
+      .input("version", sql.NVarChar(20), "01")
+      .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
+      .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
+      .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
+      .input("defaultSections", sql.NVarChar(sql.MAX), content.defaultSectionsJson)
+      .input("contentHash", sql.NVarChar(64), content.hash)
+      .input("contentSize", sql.Int, content.sizeBytes)
+      .input("sectionCount", sql.Int, content.stats.sectionCount)
+      .input("stageCount", sql.Int, content.stats.stageCount)
+      .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+      .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+      .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
+      .input("createdBy", sql.NVarChar(200), createdBy)
+      .query(`
+        INSERT INTO AuditTemplateContent (
+          TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
+          ContentHash, ContentSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
+          ApprovalStatus, IsActiveVersion, ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
+        )
+        OUTPUT INSERTED.Id
+        VALUES (
+          @templateId, @version, @headerConfig, @infoFields, @columns, @defaultSections,
+          @contentHash, @contentSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount,
+          @approvalStatus, 1, 'create', NULL, @createdBy, GETDATE()
+        );
+      `);
+    contentId = contentResult.recordset[0].Id;
+
+    await new sql.Request(transaction)
+      .input("id", sql.Int, template.Id)
+      .input("contentId", sql.Int, contentId)
+      .query(`UPDATE AuditTemplates SET CurrentVersionContentId = @contentId WHERE Id = @id`);
+
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+
+  await logTemplateHistory(pool, {
+    templateId: template.Id,
+    action: "created",
+    actionBy: createdBy,
+    versionNumber: "01",
+    newStatus: approvalStatus || "draft",
+    fieldChanges: [{ field: "Name", from: null, to: name }],
+  });
+
+  res.status(201).json({
+    success: true,
+    exists: false,
+    message: "Template created successfully",
+    data: {
+      ...template,
+      CurrentVersionContentId: contentId,
+      HeaderConfig: headerConfig || {},
+      InfoFields: infoFields || [],
+      Columns: columns || [],
+      DefaultSections: defaultSections || [],
+    },
+  });
 });
 
 // Create a new version of an EXISTING logical template. The single source of
@@ -506,146 +519,147 @@ export const createTemplateVersion = tryCatch(async (req, res) => {
     columns,
     defaultSections,
     approvalStatus,
-    createdByUser,
     basedOnVersion,
     changeType,
   } = req.body;
 
   if (!id) throw new AppError("Template ID is required", 400);
+  assertAuthorStatus(approvalStatus);
   validateTemplatePayload({ headerConfig, infoFields, columns, defaultSections });
 
-  const rawUpdatedBy = req.user?.usercode || req.user?.name || req.user?.id || createdByUser;
-  const updatedBy = (rawUpdatedBy != null && String(rawUpdatedBy).trim()) ? String(rawUpdatedBy).trim() : "SYSTEM";
+  const updatedBy = actorOf(req);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const parentResult = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
-    if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
-    const parent = parentResult.recordset[0];
+  const pool = global.pool3;
+  const parentResult = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
+  const parent = parentResult.recordset[0];
 
-    if (basedOnVersion && basedOnVersion !== parent.Version) {
-      throw new AppError(
-        `This template has changed since you loaded it (now at version ${parent.Version}). Please reload and retry.`,
-        409,
-      );
-    }
-
-    const oldContent = await loadContentForTemplate(pool, parent);
-    const newVersion = nextVersion(parent.Version || "01");
-    const content = disassembleContent({ headerConfig, infoFields, columns, defaultSections });
-
-    const transaction = new sql.Transaction(pool);
-    await transaction.begin();
-
-    let updatedParent;
-    let newContentId;
-    try {
-      const contentResult = await new sql.Request(transaction)
-        .input("templateId", sql.Int, id)
-        .input("version", sql.NVarChar(20), newVersion)
-        .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
-        .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
-        .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
-        .input("defaultSections", sql.NVarChar(sql.MAX), content.defaultSectionsJson)
-        .input("contentHash", sql.NVarChar(64), content.hash)
-        .input("contentSize", sql.Int, content.sizeBytes)
-        .input("sectionCount", sql.Int, content.stats.sectionCount)
-        .input("stageCount", sql.Int, content.stats.stageCount)
-        .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-        .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-        .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
-        .input("changeType", sql.NVarChar(20), changeType || "edit")
-        .input("createdFromVersionId", sql.Int, parent.CurrentVersionContentId || null)
-        .input("createdBy", sql.NVarChar(200), updatedBy)
-        .query(`
-          INSERT INTO AuditTemplateContent (
-            TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
-            ContentHash, ContentSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
-            ApprovalStatus, IsActiveVersion, ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
-          )
-          OUTPUT INSERTED.Id
-          VALUES (
-            @templateId, @version, @headerConfig, @infoFields, @columns, @defaultSections,
-            @contentHash, @contentSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount,
-            @approvalStatus, 1, @changeType, @createdFromVersionId, @createdBy, GETDATE()
-          );
-        `);
-      newContentId = contentResult.recordset[0].Id;
-
-      await new sql.Request(transaction)
-        .input("templateId", sql.Int, id)
-        .input("newContentId", sql.Int, newContentId)
-        .query(`UPDATE AuditTemplateContent SET IsActiveVersion = 0 WHERE TemplateId = @templateId AND Id <> @newContentId`);
-
-      const parentUpdateResult = await new sql.Request(transaction)
-        .input("id", sql.Int, id)
-        .input("version", sql.NVarChar(20), newVersion)
-        .input("contentId", sql.Int, newContentId)
-        .input("name", sql.NVarChar, name ?? parent.Name)
-        .input("description", sql.NVarChar, description !== undefined ? (description || null) : parent.Description)
-        .input("category", sql.NVarChar(100), category !== undefined ? (category || null) : parent.Category)
-        .input("models", sql.NVarChar, models !== undefined ? JSON.stringify(models) : parent.Models)
-        .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
-        .input("updatedBy", sql.NVarChar(200), updatedBy)
-        .input("templateHash", sql.NVarChar(64), content.hash)
-        .input("templateSize", sql.Int, content.sizeBytes)
-        .input("sectionCount", sql.Int, content.stats.sectionCount)
-        .input("stageCount", sql.Int, content.stats.stageCount)
-        .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-        .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-        .query(`
-          UPDATE AuditTemplates
-          SET Version = @version,
-              CurrentVersionContentId = @contentId,
-              Name = @name, Description = @description, Category = @category, Models = @models,
-              ApprovalStatus = @approvalStatus, ApprovedBy = NULL, ApprovedAt = NULL, RejectionReason = NULL,
-              TemplateHash = @templateHash, TemplateSize = @templateSize,
-              SectionCount = @sectionCount, StageCount = @stageCount,
-              CheckpointCount = @checkpointCount, RequiredCheckpointCount = @requiredCheckpointCount,
-              UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
-          OUTPUT INSERTED.*
-          WHERE Id = @id;
-        `);
-      updatedParent = parentUpdateResult.recordset[0];
-
-      await transaction.commit();
-    } catch (err) {
-      await transaction.rollback();
-      throw err;
-    }
-
-    const diff = diffTemplateConfigs(
-      { defaultSections: oldContent.defaultSections },
-      { defaultSections: defaultSections || [] },
+  if (basedOnVersion && basedOnVersion !== parent.Version) {
+    throw new AppError(
+      `This template has changed since you loaded it (now at version ${parent.Version}). Please reload and retry.`,
+      409,
     );
-
-    await logTemplateHistory(pool, {
-      templateId: parseInt(id),
-      action: "version_created",
-      actionBy: updatedBy,
-      versionNumber: newVersion,
-      previousVersion: parent.Version,
-      createdFromVersion: parent.Version,
-      previousStatus: parent.ApprovalStatus,
-      newStatus: approvalStatus || "draft",
-      fieldChanges: flattenTemplateDiff(diff),
-    });
-
-    res.status(201).json({
-      success: true,
-      message: `Version ${newVersion} created`,
-      data: {
-        ...updatedParent,
-        HeaderConfig: headerConfig || {},
-        InfoFields: infoFields || [],
-        Columns: columns || [],
-        DefaultSections: defaultSections || [],
-      },
-    });
-  } finally {
-    await pool.close();
   }
+
+  const nextName = name !== undefined ? String(name).trim() : parent.Name;
+  if (!nextName) throw new AppError("Template name is required", 400);
+  if (nextName.toLowerCase() !== String(parent.Name).trim().toLowerCase()) {
+    await assertNameAvailable(pool, nextName, parent.Id);
+  }
+
+  const oldContent = await loadContentForTemplate(pool, parent);
+  const newVersion = nextVersion(parent.Version || "01");
+  const content = disassembleContent({ headerConfig, infoFields, columns, defaultSections });
+
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  let updatedParent;
+  let newContentId;
+  try {
+    const contentResult = await new sql.Request(transaction)
+      .input("templateId", sql.Int, id)
+      .input("version", sql.NVarChar(20), newVersion)
+      .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
+      .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
+      .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
+      .input("defaultSections", sql.NVarChar(sql.MAX), content.defaultSectionsJson)
+      .input("contentHash", sql.NVarChar(64), content.hash)
+      .input("contentSize", sql.Int, content.sizeBytes)
+      .input("sectionCount", sql.Int, content.stats.sectionCount)
+      .input("stageCount", sql.Int, content.stats.stageCount)
+      .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+      .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+      .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
+      .input("changeType", sql.NVarChar(20), changeType || "edit")
+      .input("createdFromVersionId", sql.Int, parent.CurrentVersionContentId || null)
+      .input("createdBy", sql.NVarChar(200), updatedBy)
+      .query(`
+        INSERT INTO AuditTemplateContent (
+          TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
+          ContentHash, ContentSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
+          ApprovalStatus, IsActiveVersion, ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
+        )
+        OUTPUT INSERTED.Id
+        VALUES (
+          @templateId, @version, @headerConfig, @infoFields, @columns, @defaultSections,
+          @contentHash, @contentSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount,
+          @approvalStatus, 1, @changeType, @createdFromVersionId, @createdBy, GETDATE()
+        );
+      `);
+    newContentId = contentResult.recordset[0].Id;
+
+    await new sql.Request(transaction)
+      .input("templateId", sql.Int, id)
+      .input("newContentId", sql.Int, newContentId)
+      .query(`UPDATE AuditTemplateContent SET IsActiveVersion = 0 WHERE TemplateId = @templateId AND Id <> @newContentId`);
+
+    const parentUpdateResult = await new sql.Request(transaction)
+      .input("id", sql.Int, id)
+      .input("version", sql.NVarChar(20), newVersion)
+      .input("contentId", sql.Int, newContentId)
+      .input("name", sql.NVarChar, nextName)
+      .input("description", sql.NVarChar, description !== undefined ? (description || null) : parent.Description)
+      .input("category", sql.NVarChar(100), category !== undefined ? (category || null) : parent.Category)
+      .input("models", sql.NVarChar, models !== undefined ? JSON.stringify(models) : parent.Models)
+      .input("approvalStatus", sql.NVarChar(50), approvalStatus || "draft")
+      .input("updatedBy", sql.NVarChar(200), updatedBy)
+      .input("templateHash", sql.NVarChar(64), content.hash)
+      .input("templateSize", sql.Int, content.sizeBytes)
+      .input("sectionCount", sql.Int, content.stats.sectionCount)
+      .input("stageCount", sql.Int, content.stats.stageCount)
+      .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+      .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+      .query(`
+        UPDATE AuditTemplates
+        SET Version = @version,
+            CurrentVersionContentId = @contentId,
+            Name = @name, Description = @description, Category = @category, Models = @models,
+            ApprovalStatus = @approvalStatus, ApprovedBy = NULL, ApprovedAt = NULL, RejectionReason = NULL,
+            TemplateHash = @templateHash, TemplateSize = @templateSize,
+            SectionCount = @sectionCount, StageCount = @stageCount,
+            CheckpointCount = @checkpointCount, RequiredCheckpointCount = @requiredCheckpointCount,
+            UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
+        OUTPUT INSERTED.*
+        WHERE Id = @id;
+      `);
+    updatedParent = parentUpdateResult.recordset[0];
+
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+
+  const diff = diffTemplateConfigs(
+    { defaultSections: oldContent.defaultSections },
+    { defaultSections: defaultSections || [] },
+  );
+
+  await logTemplateHistory(pool, {
+    templateId: parseInt(id),
+    action: "version_created",
+    actionBy: updatedBy,
+    versionNumber: newVersion,
+    previousVersion: parent.Version,
+    createdFromVersion: parent.Version,
+    previousStatus: parent.ApprovalStatus,
+    newStatus: approvalStatus || "draft",
+    fieldChanges: flattenTemplateDiff(diff),
+  });
+
+  res.status(201).json({
+    success: true,
+    message: `Version ${newVersion} created`,
+    data: {
+      ...updatedParent,
+      HeaderConfig: headerConfig || {},
+      InfoFields: infoFields || [],
+      Columns: columns || [],
+      DefaultSections: defaultSections || [],
+    },
+  });
 });
 
 // Update template — status/metadata-only (approve / reject / submit /
@@ -665,12 +679,13 @@ export const updateTemplate = tryCatch(async (req, res) => {
     columns,
     defaultSections,
     approvalStatus,
-    approvedBy,
-    approvedAt,
     rejectionReason,
   } = req.body;
 
   if (!id) throw new AppError("Template ID is required", 400);
+  if (approvalStatus !== undefined && !ALL_STATUSES.includes(approvalStatus)) {
+    throw new AppError(`approvalStatus must be one of: ${ALL_STATUSES.join(", ")}`, 400);
+  }
 
   const hasContentFields =
     headerConfig !== undefined || infoFields !== undefined ||
@@ -683,98 +698,112 @@ export const updateTemplate = tryCatch(async (req, res) => {
     );
   }
 
-  const rawUpdatedBy = req.user?.usercode || req.user?.name || req.user?.id || req.body?.createdByUser;
-  const updatedBy = (rawUpdatedBy != null && String(rawUpdatedBy).trim()) ? String(rawUpdatedBy).trim() : "SYSTEM";
+  const updatedBy = actorOf(req);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  const pool = global.pool3;
+  const checkResult = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+
+  if (checkResult.recordset.length === 0) throw new AppError("Template not found", 404);
+  const currentTemplate = checkResult.recordset[0];
+
+  // Approving/rejecting: approver role only; who/when come from the session
+  // and server clock. Any other update keeps the existing approval stamp.
+  const isDecision = approvalStatus === "approved" || approvalStatus === "rejected";
+  if (isDecision && !TEMPLATE_APPROVER_ROLES.includes(String(req.user?.roleName || "").trim().toLowerCase())) {
+    throw new AppError("Only a Quality Manager can approve or reject templates", 403);
+  }
+  const approvedBy = isDecision ? updatedBy : undefined;
+  const approvedAt = isDecision ? new Date().toISOString() : undefined;
+
+  // Renaming, or re-activating, must not collide with another active template.
+  // (Plain status changes on an existing duplicate are left alone.)
+  const nextName = name !== undefined ? String(name).trim() : currentTemplate.Name;
+  if (!nextName) throw new AppError("Template name is required", 400);
+  const nextActive = isActive !== undefined ? isActive !== false : !!currentTemplate.IsActive;
+  const renamed = nextName.toLowerCase() !== String(currentTemplate.Name).trim().toLowerCase();
+  if (nextActive && (renamed || !currentTemplate.IsActive)) {
+    await assertNameAvailable(pool, nextName, currentTemplate.Id);
+  }
+
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  let template;
   try {
-    const checkResult = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+    const result = await new sql.Request(transaction)
+      .input("id", sql.Int, id)
+      .input("name", sql.NVarChar, nextName)
+      .input("description", sql.NVarChar, description !== undefined ? (description || null) : currentTemplate.Description)
+      .input("category", sql.NVarChar(100), category !== undefined ? (category || null) : currentTemplate.Category)
+      .input("isActive", sql.Bit, isActive !== undefined ? (isActive !== false ? 1 : 0) : (currentTemplate.IsActive ?? 1))
+      .input("approvalStatus", sql.NVarChar(50), approvalStatus || currentTemplate.ApprovalStatus || "draft")
+      .input("approvedBy", sql.NVarChar(200), approvedBy !== undefined ? (approvedBy || null) : currentTemplate.ApprovedBy)
+      .input("approvedAt", sql.DateTime, approvedAt !== undefined ? (approvedAt ? new Date(approvedAt) : null) : currentTemplate.ApprovedAt)
+      .input("rejectionReason", sql.NVarChar, rejectionReason !== undefined ? (rejectionReason || null) : currentTemplate.RejectionReason)
+      .input("models", sql.NVarChar, models !== undefined ? JSON.stringify(models) : null)
+      .input("updatedBy", sql.NVarChar(200), updatedBy)
+      .query(`
+        UPDATE AuditTemplates
+        SET
+          Name = @name, Description = @description, Category = @category, IsActive = @isActive,
+          ${models !== undefined ? "Models = @models," : ""}
+          ApprovalStatus = @approvalStatus, ApprovedBy = @approvedBy, ApprovedAt = @approvedAt,
+          RejectionReason = @rejectionReason, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
+        OUTPUT INSERTED.*
+        WHERE Id = @id AND IsDeleted = 0;
+      `);
+    template = result.recordset[0];
 
-    if (checkResult.recordset.length === 0) throw new AppError("Template not found", 404);
-    const currentTemplate = checkResult.recordset[0];
-
-    const transaction = new sql.Transaction(pool);
-    await transaction.begin();
-
-    let template;
-    try {
-      const result = await new sql.Request(transaction)
-        .input("id", sql.Int, id)
-        .input("name", sql.NVarChar, name ?? currentTemplate.Name)
-        .input("description", sql.NVarChar, description !== undefined ? (description || null) : currentTemplate.Description)
-        .input("category", sql.NVarChar(100), category !== undefined ? (category || null) : currentTemplate.Category)
-        .input("isActive", sql.Bit, isActive !== undefined ? (isActive !== false ? 1 : 0) : (currentTemplate.IsActive ?? 1))
+    // Mirror the same status fields onto the active content row, if migrated.
+    if (currentTemplate.CurrentVersionContentId) {
+      await new sql.Request(transaction)
+        .input("contentId", sql.Int, currentTemplate.CurrentVersionContentId)
         .input("approvalStatus", sql.NVarChar(50), approvalStatus || currentTemplate.ApprovalStatus || "draft")
         .input("approvedBy", sql.NVarChar(200), approvedBy !== undefined ? (approvedBy || null) : currentTemplate.ApprovedBy)
         .input("approvedAt", sql.DateTime, approvedAt !== undefined ? (approvedAt ? new Date(approvedAt) : null) : currentTemplate.ApprovedAt)
         .input("rejectionReason", sql.NVarChar, rejectionReason !== undefined ? (rejectionReason || null) : currentTemplate.RejectionReason)
-        .input("models", sql.NVarChar, models !== undefined ? JSON.stringify(models) : null)
-        .input("updatedBy", sql.NVarChar(200), updatedBy)
         .query(`
-          UPDATE AuditTemplates
-          SET
-            Name = @name, Description = @description, Category = @category, IsActive = @isActive,
-            ${models !== undefined ? "Models = @models," : ""}
-            ApprovalStatus = @approvalStatus, ApprovedBy = @approvedBy, ApprovedAt = @approvedAt,
-            RejectionReason = @rejectionReason, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
-          OUTPUT INSERTED.*
-          WHERE Id = @id AND IsDeleted = 0;
+          UPDATE AuditTemplateContent
+          SET ApprovalStatus = @approvalStatus, ApprovedBy = @approvedBy, ApprovedAt = @approvedAt, RejectionReason = @rejectionReason
+          WHERE Id = @contentId
         `);
-      template = result.recordset[0];
-
-      // Mirror the same status fields onto the active content row, if migrated.
-      if (currentTemplate.CurrentVersionContentId) {
-        await new sql.Request(transaction)
-          .input("contentId", sql.Int, currentTemplate.CurrentVersionContentId)
-          .input("approvalStatus", sql.NVarChar(50), approvalStatus || currentTemplate.ApprovalStatus || "draft")
-          .input("approvedBy", sql.NVarChar(200), approvedBy !== undefined ? (approvedBy || null) : currentTemplate.ApprovedBy)
-          .input("approvedAt", sql.DateTime, approvedAt !== undefined ? (approvedAt ? new Date(approvedAt) : null) : currentTemplate.ApprovedAt)
-          .input("rejectionReason", sql.NVarChar, rejectionReason !== undefined ? (rejectionReason || null) : currentTemplate.RejectionReason)
-          .query(`
-            UPDATE AuditTemplateContent
-            SET ApprovalStatus = @approvalStatus, ApprovedBy = @approvedBy, ApprovedAt = @approvedAt, RejectionReason = @rejectionReason
-            WHERE Id = @contentId
-          `);
-      }
-
-      await transaction.commit();
-    } catch (err) {
-      await transaction.rollback();
-      throw err;
     }
 
-    const fieldChanges = [];
-    if (name && name !== currentTemplate.Name)
-      fieldChanges.push({ field: "Name", from: currentTemplate.Name, to: name });
-    if (description !== undefined && description !== currentTemplate.Description)
-      fieldChanges.push({ field: "Description", from: currentTemplate.Description, to: description });
-    if (category !== undefined && category !== currentTemplate.Category)
-      fieldChanges.push({ field: "Category", from: currentTemplate.Category, to: category });
-    if (approvalStatus && approvalStatus !== currentTemplate.ApprovalStatus)
-      fieldChanges.push({ field: "Status", from: currentTemplate.ApprovalStatus, to: approvalStatus });
-
-    const historyAction =
-      approvalStatus === "pending_approval" ? "submitted_for_approval"
-      : approvalStatus === "approved"       ? "approved"
-      : approvalStatus === "rejected"       ? "rejected"
-      : "status_changed";
-
-    await logTemplateHistory(pool, {
-      templateId: parseInt(id),
-      action: historyAction,
-      actionBy: updatedBy,
-      comments: rejectionReason || null,
-      previousStatus: currentTemplate.ApprovalStatus,
-      newStatus: approvalStatus || currentTemplate.ApprovalStatus,
-      versionNumber: currentTemplate.Version,
-      fieldChanges: fieldChanges.length > 0 ? fieldChanges : null,
-    });
-
-    res.status(200).json({ success: true, message: "Template updated successfully", data: template });
-  } finally {
-    await pool.close();
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
   }
+
+  const fieldChanges = [];
+  if (name && name !== currentTemplate.Name)
+    fieldChanges.push({ field: "Name", from: currentTemplate.Name, to: name });
+  if (description !== undefined && description !== currentTemplate.Description)
+    fieldChanges.push({ field: "Description", from: currentTemplate.Description, to: description });
+  if (category !== undefined && category !== currentTemplate.Category)
+    fieldChanges.push({ field: "Category", from: currentTemplate.Category, to: category });
+  if (approvalStatus && approvalStatus !== currentTemplate.ApprovalStatus)
+    fieldChanges.push({ field: "Status", from: currentTemplate.ApprovalStatus, to: approvalStatus });
+
+  const historyAction =
+    approvalStatus === "pending_approval" ? "submitted_for_approval"
+    : approvalStatus === "approved"       ? "approved"
+    : approvalStatus === "rejected"       ? "rejected"
+    : "status_changed";
+
+  await logTemplateHistory(pool, {
+    templateId: parseInt(id),
+    action: historyAction,
+    actionBy: updatedBy,
+    comments: rejectionReason || null,
+    previousStatus: currentTemplate.ApprovalStatus,
+    newStatus: approvalStatus || currentTemplate.ApprovalStatus,
+    versionNumber: currentTemplate.Version,
+    fieldChanges: fieldChanges.length > 0 ? fieldChanges : null,
+  });
+
+  res.status(200).json({ success: true, message: "Template updated successfully", data: template });
 });
 
 // Delete template (soft delete)
@@ -783,9 +812,9 @@ export const deleteTemplate = tryCatch(async (req, res) => {
 
   if (!id) throw new AppError("Template ID is required", 400);
 
-  const updatedBy = String(req.user?.usercode || req.user?.name || req.user?.id || "SYSTEM");
+  const updatedBy = actorOf(req);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  const pool = global.pool3;
 
   const checkResult = await pool.request().input("id", sql.Int, id).query(`
     SELECT Id, TemplateCode, TemplateFileName
@@ -794,7 +823,6 @@ export const deleteTemplate = tryCatch(async (req, res) => {
   `);
 
   if (checkResult.recordset.length === 0) {
-    await pool.close();
     throw new AppError("Template not found", 404);
   }
 
@@ -808,7 +836,6 @@ export const deleteTemplate = tryCatch(async (req, res) => {
     );
 
   if (auditCheck.recordset[0].Count > 0) {
-    await pool.close();
     throw new AppError(
       "Cannot delete template. It is used in existing audits.",
       400,
@@ -824,7 +851,6 @@ export const deleteTemplate = tryCatch(async (req, res) => {
       WHERE Id = @id;
     `);
 
-  await pool.close();
 
   // Legacy-row-only: SQL-backed (migrated) templates have no JSON file to
   // clean up — AuditTemplateContent rows are kept forever as history.
@@ -850,184 +876,49 @@ export const deleteTemplate = tryCatch(async (req, res) => {
 // changeType:'duplicate' to confirm "Create Version".
 export const duplicateTemplate = tryCatch(async (req, res) => {
   const { id } = req.params;
-  const { newName, createdBy: createdByBody, createdByUser, confirmCreateVersion } = req.body;
+  const { newName, confirmCreateVersion } = req.body;
 
   if (!id) throw new AppError("Template ID is required", 400);
   if (!newName || !newName.trim()) throw new AppError("A new name is required to duplicate a template", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const originalResult = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
-    if (!originalResult.recordset.length) throw new AppError("Template not found", 404);
-    const original = originalResult.recordset[0];
+  const pool = global.pool3;
+  const originalResult = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT ${PARENT_COLUMNS} FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  if (!originalResult.recordset.length) throw new AppError("Template not found", 404);
+  const original = originalResult.recordset[0];
 
-    const trimmedName = newName.trim();
-    const existing = await findActiveTemplateByName(pool, trimmedName);
+  const trimmedName = newName.trim();
+  const existing = await findActiveTemplateByName(pool, trimmedName);
 
-    if (existing && !confirmCreateVersion) {
-      const data = await getTemplateByIdInternal(pool, existing.Id);
-      return res.status(200).json({
-        success: true,
-        exists: true,
-        existingTemplateId: existing.Id,
-        message: `A template named "${trimmedName}" already exists.`,
-        data,
-      });
-    }
+  if (existing && !confirmCreateVersion) {
+    const data = await getTemplateByIdInternal(pool, existing.Id);
+    return res.status(200).json({
+      success: true,
+      exists: true,
+      existingTemplateId: existing.Id,
+      message: `A template named "${trimmedName}" already exists.`,
+      data,
+    });
+  }
 
-    // Confirmed: the duplicated name collides with an existing template and
-    // the client confirmed "Create Version" — create a new version of THAT
-    // template using the source template's content, entirely server-side
-    // (the client never needs to carry full content between calls).
-    if (existing && confirmCreateVersion) {
-      const sourceContent = await loadContentForTemplate(pool, original);
-      const content = disassembleContent(sourceContent);
-      const rawCreatedByVer = req.user?.userCode || req.user?.name || createdByBody || createdByUser;
-      const createdByVer = (rawCreatedByVer != null && String(rawCreatedByVer).trim()) ? String(rawCreatedByVer).trim() : "SYSTEM";
-      const newVersion = nextVersion(existing.Version || "01");
-
-      const transaction = new sql.Transaction(pool);
-      await transaction.begin();
-      let updatedExisting;
-      let newContentId;
-      try {
-        const contentResult = await new sql.Request(transaction)
-          .input("templateId", sql.Int, existing.Id)
-          .input("version", sql.NVarChar(20), newVersion)
-          .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
-          .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
-          .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
-          .input("defaultSections", sql.NVarChar(sql.MAX), content.defaultSectionsJson)
-          .input("contentHash", sql.NVarChar(64), content.hash)
-          .input("contentSize", sql.Int, content.sizeBytes)
-          .input("sectionCount", sql.Int, content.stats.sectionCount)
-          .input("stageCount", sql.Int, content.stats.stageCount)
-          .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-          .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-          .input("createdFromVersionId", sql.Int, original.CurrentVersionContentId || null)
-          .input("createdBy", sql.NVarChar(200), createdByVer)
-          .query(`
-            INSERT INTO AuditTemplateContent (
-              TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
-              ContentHash, ContentSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
-              ApprovalStatus, IsActiveVersion, ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
-            )
-            OUTPUT INSERTED.Id
-            VALUES (
-              @templateId, @version, @headerConfig, @infoFields, @columns, @defaultSections,
-              @contentHash, @contentSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount,
-              'draft', 1, 'duplicate', @createdFromVersionId, @createdBy, GETDATE()
-            );
-          `);
-        newContentId = contentResult.recordset[0].Id;
-
-        await new sql.Request(transaction)
-          .input("templateId", sql.Int, existing.Id)
-          .input("newContentId", sql.Int, newContentId)
-          .query(`UPDATE AuditTemplateContent SET IsActiveVersion = 0 WHERE TemplateId = @templateId AND Id <> @newContentId`);
-
-        const updateResult = await new sql.Request(transaction)
-          .input("id", sql.Int, existing.Id)
-          .input("version", sql.NVarChar(20), newVersion)
-          .input("contentId", sql.Int, newContentId)
-          .input("updatedBy", sql.NVarChar(200), createdByVer)
-          .input("templateHash", sql.NVarChar(64), content.hash)
-          .input("templateSize", sql.Int, content.sizeBytes)
-          .input("sectionCount", sql.Int, content.stats.sectionCount)
-          .input("stageCount", sql.Int, content.stats.stageCount)
-          .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-          .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-          .query(`
-            UPDATE AuditTemplates
-            SET Version = @version, CurrentVersionContentId = @contentId,
-                ApprovalStatus = 'draft', ApprovedBy = NULL, ApprovedAt = NULL, RejectionReason = NULL,
-                TemplateHash = @templateHash, TemplateSize = @templateSize,
-                SectionCount = @sectionCount, StageCount = @stageCount,
-                CheckpointCount = @checkpointCount, RequiredCheckpointCount = @requiredCheckpointCount,
-                UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
-            OUTPUT INSERTED.*
-            WHERE Id = @id;
-          `);
-        updatedExisting = updateResult.recordset[0];
-
-        await transaction.commit();
-      } catch (err) {
-        await transaction.rollback();
-        throw err;
-      }
-
-      await logTemplateHistory(pool, {
-        templateId: existing.Id,
-        action: "duplicated_as_version",
-        actionBy: createdByVer,
-        versionNumber: newVersion,
-        previousVersion: existing.Version,
-        createdFromVersion: original.Version,
-        newStatus: "draft",
-        comments: `Version created from duplicating "${original.Name}" (TemplateId ${original.Id})`,
-      });
-
-      return res.status(201).json({
-        success: true,
-        exists: false,
-        message: `Version ${newVersion} created on "${existing.Name}"`,
-        data: {
-          ...updatedExisting,
-          HeaderConfig: sourceContent.headerConfig,
-          InfoFields: sourceContent.infoFields,
-          Columns: sourceContent.columns,
-          DefaultSections: sourceContent.defaultSections,
-        },
-      });
-    }
-
-    const originalContent = await loadContentForTemplate(pool, original);
-
-    const newTemplateCode = await generateTemplateCode();
-    const rawCreatedByDup = req.user?.userCode || req.user?.name || createdByBody || createdByUser;
-    const createdBy = (rawCreatedByDup != null && String(rawCreatedByDup).trim()) ? String(rawCreatedByDup).trim() : "SYSTEM";
-
-    const content = disassembleContent(originalContent);
+  // Confirmed: the duplicated name collides with an existing template and
+  // the client confirmed "Create Version" — create a new version of THAT
+  // template using the source template's content, entirely server-side
+  // (the client never needs to carry full content between calls).
+  if (existing && confirmCreateVersion) {
+    const sourceContent = await loadContentForTemplate(pool, original);
+    const content = disassembleContent(sourceContent);
+    const createdByVer = actorOf(req);
+    const newVersion = nextVersion(existing.Version || "01");
 
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
-
-    let template;
-    let contentId;
+    let updatedExisting;
+    let newContentId;
     try {
-      const result = await new sql.Request(transaction)
-        .input("templateCode", sql.NVarChar(50), newTemplateCode)
-        .input("name", sql.NVarChar, trimmedName)
-        .input("description", sql.NVarChar, original.Description)
-        .input("category", sql.NVarChar(100), original.Category)
-        .input("version", sql.NVarChar(20), "01")
-        .input("isActive", sql.Bit, 1)
-        .input("createdBy", sql.NVarChar(200), createdBy)
-        .input("templateHash", sql.NVarChar(64), content.hash)
-        .input("templateSize", sql.Int, content.sizeBytes)
-        .input("sectionCount", sql.Int, content.stats.sectionCount)
-        .input("stageCount", sql.Int, content.stats.stageCount)
-        .input("checkpointCount", sql.Int, content.stats.checkpointCount)
-        .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
-        .query(`
-          INSERT INTO AuditTemplates (
-            TemplateCode, Name, Description, Category, Version, IsActive,
-            ApprovalStatus, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
-            TemplateHash, TemplateSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            @templateCode, @name, @description, @category, @version, @isActive,
-            'draft', @createdBy, GETDATE(), @createdBy, GETDATE(),
-            @templateHash, @templateSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount
-          );
-        `);
-      template = result.recordset[0];
-
       const contentResult = await new sql.Request(transaction)
-        .input("templateId", sql.Int, template.Id)
-        .input("version", sql.NVarChar(20), "01")
+        .input("templateId", sql.Int, existing.Id)
+        .input("version", sql.NVarChar(20), newVersion)
         .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
         .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
         .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
@@ -1039,7 +930,7 @@ export const duplicateTemplate = tryCatch(async (req, res) => {
         .input("checkpointCount", sql.Int, content.stats.checkpointCount)
         .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
         .input("createdFromVersionId", sql.Int, original.CurrentVersionContentId || null)
-        .input("createdBy", sql.NVarChar(200), createdBy)
+        .input("createdBy", sql.NVarChar(200), createdByVer)
         .query(`
           INSERT INTO AuditTemplateContent (
             TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
@@ -1053,12 +944,36 @@ export const duplicateTemplate = tryCatch(async (req, res) => {
             'draft', 1, 'duplicate', @createdFromVersionId, @createdBy, GETDATE()
           );
         `);
-      contentId = contentResult.recordset[0].Id;
+      newContentId = contentResult.recordset[0].Id;
 
       await new sql.Request(transaction)
-        .input("id", sql.Int, template.Id)
-        .input("contentId", sql.Int, contentId)
-        .query(`UPDATE AuditTemplates SET CurrentVersionContentId = @contentId WHERE Id = @id`);
+        .input("templateId", sql.Int, existing.Id)
+        .input("newContentId", sql.Int, newContentId)
+        .query(`UPDATE AuditTemplateContent SET IsActiveVersion = 0 WHERE TemplateId = @templateId AND Id <> @newContentId`);
+
+      const updateResult = await new sql.Request(transaction)
+        .input("id", sql.Int, existing.Id)
+        .input("version", sql.NVarChar(20), newVersion)
+        .input("contentId", sql.Int, newContentId)
+        .input("updatedBy", sql.NVarChar(200), createdByVer)
+        .input("templateHash", sql.NVarChar(64), content.hash)
+        .input("templateSize", sql.Int, content.sizeBytes)
+        .input("sectionCount", sql.Int, content.stats.sectionCount)
+        .input("stageCount", sql.Int, content.stats.stageCount)
+        .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+        .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+        .query(`
+          UPDATE AuditTemplates
+          SET Version = @version, CurrentVersionContentId = @contentId,
+              ApprovalStatus = 'draft', ApprovedBy = NULL, ApprovedAt = NULL, RejectionReason = NULL,
+              TemplateHash = @templateHash, TemplateSize = @templateSize,
+              SectionCount = @sectionCount, StageCount = @stageCount,
+              CheckpointCount = @checkpointCount, RequiredCheckpointCount = @requiredCheckpointCount,
+              UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
+          OUTPUT INSERTED.*
+          WHERE Id = @id;
+        `);
+      updatedExisting = updateResult.recordset[0];
 
       await transaction.commit();
     } catch (err) {
@@ -1067,30 +982,135 @@ export const duplicateTemplate = tryCatch(async (req, res) => {
     }
 
     await logTemplateHistory(pool, {
-      templateId: template.Id,
-      action: "duplicated_as_new",
-      actionBy: createdBy,
-      versionNumber: "01",
+      templateId: existing.Id,
+      action: "duplicated_as_version",
+      actionBy: createdByVer,
+      versionNumber: newVersion,
+      previousVersion: existing.Version,
+      createdFromVersion: original.Version,
       newStatus: "draft",
-      comments: `Duplicated from "${original.Name}" (TemplateId ${original.Id})`,
+      comments: `Version created from duplicating "${original.Name}" (TemplateId ${original.Id})`,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       exists: false,
-      message: "Template duplicated successfully",
+      message: `Version ${newVersion} created on "${existing.Name}"`,
       data: {
-        ...template,
-        CurrentVersionContentId: contentId,
-        HeaderConfig: originalContent.headerConfig,
-        InfoFields: originalContent.infoFields,
-        Columns: originalContent.columns,
-        DefaultSections: originalContent.defaultSections,
+        ...updatedExisting,
+        HeaderConfig: sourceContent.headerConfig,
+        InfoFields: sourceContent.infoFields,
+        Columns: sourceContent.columns,
+        DefaultSections: sourceContent.defaultSections,
       },
     });
-  } finally {
-    await pool.close();
   }
+
+  const originalContent = await loadContentForTemplate(pool, original);
+
+  const newTemplateCode = await generateTemplateCode();
+  const createdBy = actorOf(req);
+
+  const content = disassembleContent(originalContent);
+
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  let template;
+  let contentId;
+  try {
+    const result = await new sql.Request(transaction)
+      .input("templateCode", sql.NVarChar(50), newTemplateCode)
+      .input("name", sql.NVarChar, trimmedName)
+      .input("description", sql.NVarChar, original.Description)
+      .input("category", sql.NVarChar(100), original.Category)
+      .input("version", sql.NVarChar(20), "01")
+      .input("isActive", sql.Bit, 1)
+      .input("createdBy", sql.NVarChar(200), createdBy)
+      .input("templateHash", sql.NVarChar(64), content.hash)
+      .input("templateSize", sql.Int, content.sizeBytes)
+      .input("sectionCount", sql.Int, content.stats.sectionCount)
+      .input("stageCount", sql.Int, content.stats.stageCount)
+      .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+      .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+      .query(`
+        INSERT INTO AuditTemplates (
+          TemplateCode, Name, Description, Category, Version, IsActive,
+          ApprovalStatus, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
+          TemplateHash, TemplateSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @templateCode, @name, @description, @category, @version, @isActive,
+          'draft', @createdBy, GETDATE(), @createdBy, GETDATE(),
+          @templateHash, @templateSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount
+        );
+      `);
+    template = result.recordset[0];
+
+    const contentResult = await new sql.Request(transaction)
+      .input("templateId", sql.Int, template.Id)
+      .input("version", sql.NVarChar(20), "01")
+      .input("headerConfig", sql.NVarChar(sql.MAX), content.headerConfigJson)
+      .input("infoFields", sql.NVarChar(sql.MAX), content.infoFieldsJson)
+      .input("columns", sql.NVarChar(sql.MAX), content.columnsJson)
+      .input("defaultSections", sql.NVarChar(sql.MAX), content.defaultSectionsJson)
+      .input("contentHash", sql.NVarChar(64), content.hash)
+      .input("contentSize", sql.Int, content.sizeBytes)
+      .input("sectionCount", sql.Int, content.stats.sectionCount)
+      .input("stageCount", sql.Int, content.stats.stageCount)
+      .input("checkpointCount", sql.Int, content.stats.checkpointCount)
+      .input("requiredCheckpointCount", sql.Int, content.stats.requiredCheckpointCount)
+      .input("createdFromVersionId", sql.Int, original.CurrentVersionContentId || null)
+      .input("createdBy", sql.NVarChar(200), createdBy)
+      .query(`
+        INSERT INTO AuditTemplateContent (
+          TemplateId, Version, HeaderConfig, InfoFields, Columns, DefaultSections,
+          ContentHash, ContentSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
+          ApprovalStatus, IsActiveVersion, ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
+        )
+        OUTPUT INSERTED.Id
+        VALUES (
+          @templateId, @version, @headerConfig, @infoFields, @columns, @defaultSections,
+          @contentHash, @contentSize, @sectionCount, @stageCount, @checkpointCount, @requiredCheckpointCount,
+          'draft', 1, 'duplicate', @createdFromVersionId, @createdBy, GETDATE()
+        );
+      `);
+    contentId = contentResult.recordset[0].Id;
+
+    await new sql.Request(transaction)
+      .input("id", sql.Int, template.Id)
+      .input("contentId", sql.Int, contentId)
+      .query(`UPDATE AuditTemplates SET CurrentVersionContentId = @contentId WHERE Id = @id`);
+
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+
+  await logTemplateHistory(pool, {
+    templateId: template.Id,
+    action: "duplicated_as_new",
+    actionBy: createdBy,
+    versionNumber: "01",
+    newStatus: "draft",
+    comments: `Duplicated from "${original.Name}" (TemplateId ${original.Id})`,
+  });
+
+  res.status(201).json({
+    success: true,
+    exists: false,
+    message: "Template duplicated successfully",
+    data: {
+      ...template,
+      CurrentVersionContentId: contentId,
+      HeaderConfig: originalContent.headerConfig,
+      InfoFields: originalContent.infoFields,
+      Columns: originalContent.columns,
+      DefaultSections: originalContent.defaultSections,
+    },
+  });
 });
 
 // Get template history (change log)
@@ -1098,27 +1118,23 @@ export const getTemplateHistory = tryCatch(async (req, res) => {
   const { id } = req.params;
   if (!id) throw new AppError("Template ID is required", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const result = await pool.request()
-      .input("templateId", sql.Int, id)
-      .query(`
-        SELECT Id, TemplateId, Action, ActionBy, ActionAt, Comments,
-               PreviousStatus, NewStatus, FieldChanges, VersionNumber, PreviousVersion, CreatedFromVersion
-        FROM   AuditTemplateHistory
-        WHERE  TemplateId = @templateId
-        ORDER BY ActionAt DESC;
-      `);
+  const pool = global.pool3;
+  const result = await pool.request()
+    .input("templateId", sql.Int, id)
+    .query(`
+      SELECT Id, TemplateId, Action, ActionBy, ActionAt, Comments,
+             PreviousStatus, NewStatus, FieldChanges, VersionNumber, PreviousVersion, CreatedFromVersion
+      FROM   AuditTemplateHistory
+      WHERE  TemplateId = @templateId
+      ORDER BY ActionAt DESC;
+    `);
 
-    const history = result.recordset.map((r) => ({
-      ...r,
-      FieldChanges: r.FieldChanges ? JSON.parse(r.FieldChanges) : null,
-    }));
+  const history = result.recordset.map((r) => ({
+    ...r,
+    FieldChanges: r.FieldChanges ? JSON.parse(r.FieldChanges) : null,
+  }));
 
-    res.status(200).json({ success: true, data: history });
-  } finally {
-    await pool.close();
-  }
+  res.status(200).json({ success: true, data: history });
 });
 
 // List all versions for a template (the version chain) — SQL-backed, with a
@@ -1127,41 +1143,37 @@ export const getTemplateVersions = tryCatch(async (req, res) => {
   const { id } = req.params;
   if (!id) throw new AppError("Template ID is required", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const parentResult = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT CurrentVersionContentId FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
-    if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
+  const pool = global.pool3;
+  const parentResult = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT CurrentVersionContentId FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
 
-    if (parentResult.recordset[0].CurrentVersionContentId) {
-      const result = await pool.request()
-        .input("templateId", sql.Int, id)
-        .query(`
-          SELECT Id, TemplateId, Version, ContentHash AS TemplateHash, ContentSize AS TemplateSize,
-                 SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
-                 JsonSchemaVersion, ApprovalStatus, IsActiveVersion AS IsLatest,
-                 ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
-          FROM   AuditTemplateContent
-          WHERE  TemplateId = @templateId
-          ORDER BY CreatedAt DESC;
-        `);
-      return res.status(200).json({ success: true, data: result.recordset });
-    }
-
-    const legacy = await pool.request()
+  if (parentResult.recordset[0].CurrentVersionContentId) {
+    const result = await pool.request()
       .input("templateId", sql.Int, id)
       .query(`
-        SELECT Id, TemplateId, Version, TemplateFileName, TemplateHash, TemplateSize,
+        SELECT Id, TemplateId, Version, ContentHash AS TemplateHash, ContentSize AS TemplateSize,
                SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
-               JsonSchemaVersion, IsLatest, CreatedBy, CreatedAt
-        FROM   AuditTemplateVersions
+               JsonSchemaVersion, ApprovalStatus, IsActiveVersion AS IsLatest,
+               ChangeType, CreatedFromVersionId, CreatedBy, CreatedAt
+        FROM   AuditTemplateContent
         WHERE  TemplateId = @templateId
         ORDER BY CreatedAt DESC;
       `);
-    res.status(200).json({ success: true, data: legacy.recordset });
-  } finally {
-    await pool.close();
+    return res.status(200).json({ success: true, data: result.recordset });
   }
+
+  const legacy = await pool.request()
+    .input("templateId", sql.Int, id)
+    .query(`
+      SELECT Id, TemplateId, Version, TemplateFileName, TemplateHash, TemplateSize,
+             SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
+             JsonSchemaVersion, IsLatest, CreatedBy, CreatedAt
+      FROM   AuditTemplateVersions
+      WHERE  TemplateId = @templateId
+      ORDER BY CreatedAt DESC;
+    `);
+  res.status(200).json({ success: true, data: legacy.recordset });
 });
 
 // Fetch a specific historical version's config
@@ -1169,46 +1181,42 @@ export const getTemplateVersionFile = tryCatch(async (req, res) => {
   const { id, version } = req.params;
   if (!id || !version) throw new AppError("Template ID and version are required", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const parentResult = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT CurrentVersionContentId FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
-    if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
+  const pool = global.pool3;
+  const parentResult = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT CurrentVersionContentId FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
 
-    if (parentResult.recordset[0].CurrentVersionContentId) {
-      const result = await pool.request()
-        .input("templateId", sql.Int, id)
-        .input("version", sql.NVarChar(20), version)
-        .query(`SELECT * FROM AuditTemplateContent WHERE TemplateId = @templateId AND Version = @version`);
-      if (!result.recordset.length) throw new AppError("Version not found", 404);
-
-      const row = result.recordset[0];
-      res.status(200).json({
-        success: true,
-        data: { ...row, config: assembleContent(row), hashValid: true },
-      });
-      return;
-    }
-
-    // Legacy fallback
-    const legacy = await pool.request()
+  if (parentResult.recordset[0].CurrentVersionContentId) {
+    const result = await pool.request()
       .input("templateId", sql.Int, id)
       .input("version", sql.NVarChar(20), version)
-      .query(`SELECT * FROM AuditTemplateVersions WHERE TemplateId = @templateId AND Version = @version`);
-    if (!legacy.recordset.length) throw new AppError("Version not found", 404);
+      .query(`SELECT * FROM AuditTemplateContent WHERE TemplateId = @templateId AND Version = @version`);
+    if (!result.recordset.length) throw new AppError("Version not found", 404);
 
-    const row = legacy.recordset[0];
-    const config = await readTemplateFile(row.TemplateFileName);
-    const rawString = await readTemplateFileRaw(row.TemplateFileName);
-    const { valid, skipped } = verifyTemplateHash(rawString, row.TemplateHash);
-
+    const row = result.recordset[0];
     res.status(200).json({
       success: true,
-      data: { ...row, config, hashValid: skipped ? null : valid },
+      data: { ...row, config: assembleContent(row), hashValid: true },
     });
-  } finally {
-    await pool.close();
+    return;
   }
+
+  // Legacy fallback
+  const legacy = await pool.request()
+    .input("templateId", sql.Int, id)
+    .input("version", sql.NVarChar(20), version)
+    .query(`SELECT * FROM AuditTemplateVersions WHERE TemplateId = @templateId AND Version = @version`);
+  if (!legacy.recordset.length) throw new AppError("Version not found", 404);
+
+  const row = legacy.recordset[0];
+  const config = await readTemplateFile(row.TemplateFileName);
+  const rawString = await readTemplateFileRaw(row.TemplateFileName);
+  const { valid, skipped } = verifyTemplateHash(rawString, row.TemplateHash);
+
+  res.status(200).json({
+    success: true,
+    data: { ...row, config, hashValid: skipped ? null : valid },
+  });
 });
 
 // Compare two versions of a template — structured, id-based diff
@@ -1218,79 +1226,75 @@ export const compareTemplateVersions = tryCatch(async (req, res) => {
   if (!id) throw new AppError("Template ID is required", 400);
   if (!from || !to) throw new AppError("Both from and to query params are required", 400);
 
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  try {
-    const parentResult = await pool.request().input("id", sql.Int, id)
-      .query(`SELECT CurrentVersionContentId FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
-    if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
+  const pool = global.pool3;
+  const parentResult = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT CurrentVersionContentId FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  if (!parentResult.recordset.length) throw new AppError("Template not found", 404);
 
-    const toMeta = (row, fromHash, fromSize) => ({
-      version: row.Version,
-      hash: fromHash,
-      createdBy: row.CreatedBy,
-      createdAt: row.CreatedAt,
-      stats: {
-        sectionCount: row.SectionCount,
-        stageCount: row.StageCount,
-        checkpointCount: row.CheckpointCount,
-        requiredCheckpointCount: row.RequiredCheckpointCount,
-      },
-    });
+  const toMeta = (row, fromHash, fromSize) => ({
+    version: row.Version,
+    hash: fromHash,
+    createdBy: row.CreatedBy,
+    createdAt: row.CreatedAt,
+    stats: {
+      sectionCount: row.SectionCount,
+      stageCount: row.StageCount,
+      checkpointCount: row.CheckpointCount,
+      requiredCheckpointCount: row.RequiredCheckpointCount,
+    },
+  });
 
-    if (parentResult.recordset[0].CurrentVersionContentId) {
-      const rows = await pool.request()
-        .input("templateId", sql.Int, id)
-        .input("from", sql.NVarChar(20), from)
-        .input("to", sql.NVarChar(20), to)
-        .query(`SELECT * FROM AuditTemplateContent WHERE TemplateId = @templateId AND Version IN (@from, @to)`);
-
-      const fromRow = rows.recordset.find((r) => r.Version === from);
-      const toRow = rows.recordset.find((r) => r.Version === to);
-      if (!fromRow) throw new AppError(`Version ${from} not found for this template`, 404);
-      if (!toRow) throw new AppError(`Version ${to} not found for this template`, 404);
-
-      const fromConfig = assembleContent(fromRow);
-      const toConfig = from === to ? fromConfig : assembleContent(toRow);
-      const diff = diffTemplateConfigs(fromConfig, toConfig);
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          from: toMeta(fromRow, fromRow.ContentHash),
-          to: toMeta(toRow, toRow.ContentHash),
-          diff,
-        },
-      });
-    }
-
-    // Legacy fallback
+  if (parentResult.recordset[0].CurrentVersionContentId) {
     const rows = await pool.request()
       .input("templateId", sql.Int, id)
       .input("from", sql.NVarChar(20), from)
       .input("to", sql.NVarChar(20), to)
-      .query(`SELECT * FROM AuditTemplateVersions WHERE TemplateId = @templateId AND Version IN (@from, @to)`);
+      .query(`SELECT * FROM AuditTemplateContent WHERE TemplateId = @templateId AND Version IN (@from, @to)`);
 
     const fromRow = rows.recordset.find((r) => r.Version === from);
     const toRow = rows.recordset.find((r) => r.Version === to);
     if (!fromRow) throw new AppError(`Version ${from} not found for this template`, 404);
     if (!toRow) throw new AppError(`Version ${to} not found for this template`, 404);
 
-    const fromConfig = await readTemplateFile(fromRow.TemplateFileName);
-    const toConfig = from === to ? fromConfig : await readTemplateFile(toRow.TemplateFileName);
+    const fromConfig = assembleContent(fromRow);
+    const toConfig = from === to ? fromConfig : assembleContent(toRow);
     const diff = diffTemplateConfigs(fromConfig, toConfig);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: { from: toMeta(fromRow, fromRow.TemplateHash), to: toMeta(toRow, toRow.TemplateHash), diff },
+      data: {
+        from: toMeta(fromRow, fromRow.ContentHash),
+        to: toMeta(toRow, toRow.ContentHash),
+        diff,
+      },
     });
-  } finally {
-    await pool.close();
   }
+
+  // Legacy fallback
+  const rows = await pool.request()
+    .input("templateId", sql.Int, id)
+    .input("from", sql.NVarChar(20), from)
+    .input("to", sql.NVarChar(20), to)
+    .query(`SELECT * FROM AuditTemplateVersions WHERE TemplateId = @templateId AND Version IN (@from, @to)`);
+
+  const fromRow = rows.recordset.find((r) => r.Version === from);
+  const toRow = rows.recordset.find((r) => r.Version === to);
+  if (!fromRow) throw new AppError(`Version ${from} not found for this template`, 404);
+  if (!toRow) throw new AppError(`Version ${to} not found for this template`, 404);
+
+  const fromConfig = await readTemplateFile(fromRow.TemplateFileName);
+  const toConfig = from === to ? fromConfig : await readTemplateFile(toRow.TemplateFileName);
+  const diff = diffTemplateConfigs(fromConfig, toConfig);
+
+  res.status(200).json({
+    success: true,
+    data: { from: toMeta(fromRow, fromRow.TemplateHash), to: toMeta(toRow, toRow.TemplateHash), diff },
+  });
 });
 
 // Get template categories
 export const getTemplateCategories = tryCatch(async (req, res) => {
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  const pool = global.pool3;
 
   const result = await pool.request().query(`
     SELECT DISTINCT Category, COUNT(*) AS Count
@@ -1300,7 +1304,6 @@ export const getTemplateCategories = tryCatch(async (req, res) => {
     ORDER BY Category;
   `);
 
-  await pool.close();
 
   res.status(200).json({
     success: true,

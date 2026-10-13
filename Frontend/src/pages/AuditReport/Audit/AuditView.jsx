@@ -324,7 +324,8 @@ const AuditView = () => {
   // ==================== Approval ====================
   const openApprovalModal = (action) => {
     setApprovalAction(action);
-    setApproverName("");
+    // Server records the logged-in user as approver; shown here for clarity.
+    setApproverName(user?.name || user?.usercode || "");
     setApprovalComments("");
     setShowApprovalModal(true);
   };
@@ -797,15 +798,13 @@ const AuditView = () => {
             <div className="p-6 space-y-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Your Name <span className="text-red-500">*</span>
+                  Approver
                 </label>
                 <input
                   type="text"
                   value={approverName}
-                  onChange={(e) => setApproverName(e.target.value)}
-                  placeholder="Enter your full name"
-                  autoFocus
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none text-sm transition-all"
+                  readOnly
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 outline-none text-sm"
                 />
               </div>
               <div>

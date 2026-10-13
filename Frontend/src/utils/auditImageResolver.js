@@ -33,24 +33,32 @@ export const imageKey = (val) => {
   return String(val);
 };
 
-export const normalizeImageOrientation = (dataUrl) =>
-  new Promise((resolve) => {
-    if (!dataUrl) { resolve(dataUrl); return; }
+// Re-draws an image through a canvas as an upright JPEG, scaled down so its
+// longest side is at most `maxSide`. Rejects if the browser can't decode it
+// (e.g. HEIC on Windows) or it has no pixels.
+export const redrawAsJpeg = (dataUrl, maxSide = Infinity, quality = 0.92) =>
+  new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       try {
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
         const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext("2d").drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/jpeg", 0.92));
-      } catch {
-        resolve(dataUrl);
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        if (!canvas.width || !canvas.height) throw new Error("Empty image");
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } catch (err) {
+        reject(err);
       }
     };
-    img.onerror = () => resolve(dataUrl);
+    img.onerror = () => reject(new Error("Unreadable image"));
     img.src = dataUrl;
   });
+
+// Exporters: full size, and never fail — fall back to the original on error.
+export const normalizeImageOrientation = (dataUrl) =>
+  dataUrl ? redrawAsJpeg(dataUrl).catch(() => dataUrl) : Promise.resolve(dataUrl);
 
 // Walks every checkpoint in `sections`, resolves each unique image found in
 // an `imageColIds` column to a normalized (EXIF-corrected) base64 JPEG, and

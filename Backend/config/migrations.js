@@ -1211,5 +1211,35 @@ export const runMigrations = async (pool3) => {
        OR v.vehicle_details IS NULL OR v.email IS NULL
   `);
 
+  // ── Purge draft-autosave snapshots from AuditHistory. updateAudit used to log
+  //    two full audit copies on every autosave (~190 MB); it now logs status
+  //    changes only. Deletes 'updated' rows whose status didn't change and
+  //    keeps real transitions (draft → submitted snapshots). No-op once clean.
+  const purge = await pool3.request().query(`
+    DELETE FROM AuditHistory
+    WHERE Action = 'updated'
+      AND ISJSON(PreviousData) = 1 AND ISJSON(NewData) = 1
+      AND JSON_VALUE(PreviousData, '$.Status') = JSON_VALUE(NewData, '$.Status')
+  `);
+  if (purge.rowsAffected[0]) {
+    console.log(`Migration: purged ${purge.rowsAffected[0]} draft-autosave rows from AuditHistory`);
+  }
+
+  // ── At most one ACTIVE template per name (inactive/deleted copies may share
+  //    it). Backs up the app-level check in template.controller. Wrapped so a
+  //    database that still holds duplicates logs a warning instead of
+  //    blocking startup.
+  await pool3.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_AuditTemplates_ActiveName')
+    BEGIN TRY
+      CREATE UNIQUE INDEX UX_AuditTemplates_ActiveName ON AuditTemplates (Name)
+        WHERE IsActive = 1 AND IsDeleted = 0;
+      PRINT 'Migration: Created UX_AuditTemplates_ActiveName';
+    END TRY
+    BEGIN CATCH
+      PRINT 'Migration WARNING: UX_AuditTemplates_ActiveName not created (duplicate active template names?): ' + ERROR_MESSAGE();
+    END CATCH
+  `);
+
   console.log("Migrations completed.");
 };

@@ -260,6 +260,12 @@ const StatCard = ({
 );
 
 // ==================== MAIN COMPONENT ====================
+// Search, tabs, counts and paging below all run client-side, so the list must
+// hold every audit — not the API's default first 50. lite skips the heavy
+// sections JSON (the list only needs status/infoData/summary).
+// ponytail: client-side up to 5000 audits; move filtering/paging to the API past that.
+const LIST_PARAMS = { lite: true, limit: 5000 };
+
 const AuditList = () => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
@@ -361,7 +367,7 @@ const AuditList = () => {
     const fetchData = async () => {
       setInitialLoading(true);
       try {
-        await Promise.all([loadAudits(), loadTemplates()]);
+        await Promise.all([loadAudits(LIST_PARAMS), loadTemplates()]);
       } catch {
         toast.error("Failed to load data");
       } finally {
@@ -387,7 +393,7 @@ const AuditList = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadAudits(), loadTemplates()]);
+      await Promise.all([loadAudits(LIST_PARAMS), loadTemplates()]);
       toast.success("Refreshed");
     } catch {
       toast.error("Refresh failed");

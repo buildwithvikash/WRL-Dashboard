@@ -1,8 +1,7 @@
 import sql from "mssql";
-import { dbConfig3 } from "../config/db.config.js";
 
 export const generateTemplateCode = async () => {
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  const pool = global.pool3;
 
   const result = await pool
     .request()
@@ -12,7 +11,7 @@ export const generateTemplateCode = async () => {
 };
 
 export const generateAuditCode = async (prefix = "AUD") => {
-  const pool = await new sql.ConnectionPool(dbConfig3).connect();
+  const pool = global.pool3;
 
   const result = await pool
     .request()
