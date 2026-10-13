@@ -324,7 +324,8 @@ export const useAuditData = () => {
       const response = await axios.post(`${API_BASE}/audits`, auditData);
       const newAudit = transformAudit(response.data.data);
       setAudits((prev) => [newAudit, ...prev]);
-      return newAudit;
+      // Photos the server couldn't save (bad type/too large) — caller surfaces them.
+      return { ...newAudit, imageErrors: response.data.imageErrors || [] };
     } catch (err) {
       const message = err.response?.data?.message || "Failed to create audit";
       setError(message);
@@ -342,7 +343,7 @@ export const useAuditData = () => {
       const response = await axios.put(`${API_BASE}/audits/${id}`, auditData);
       const updatedAudit = transformAudit(response.data.data);
       setAudits((prev) => prev.map((a) => (a.id == id ? updatedAudit : a)));
-      return updatedAudit;
+      return { ...updatedAudit, imageErrors: response.data.imageErrors || [] };
     } catch (err) {
       const message = err.response?.data?.message || "Failed to update audit";
       setError(message);

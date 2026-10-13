@@ -53,17 +53,18 @@ import toast from "react-hot-toast";
 import { getCurrentShift } from "../../../utils/shiftUtils.js";
 import { formatDuration } from "../../../utils/dateUtils.js";
 import { canUseGetUserMedia } from "../../../utils/mediaCapture.js";
+import { redrawAsJpeg } from "../../../utils/auditImageResolver.js";
 import { baseURL } from "../../../assets/assets.js";
 import { ROLES } from "../../../config/routes.config";
 
 // ==================== CONSTANTS ====================
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-];
+// Photos are shrunk in the browser before upload: phone cameras produce 4–8 MB
+// files, which used to be rejected outright. 1600 px on the longest side keeps
+// inspection detail at ~200–400 KB, and everything becomes JPEG (the server
+// only accepts JPEG/PNG).
+const MAX_SOURCE_SIZE = 25 * 1024 * 1024;
+const MAX_PHOTO_SIDE = 1600;
+const PHOTO_QUALITY = 0.85;
 
 const STATUS_CONFIG = {
   pass: {
@@ -281,11 +282,23 @@ const ImageZone = ({ onFile, uploadRef }) => {
     if (file) onFile({ target: { files: [file] } });
   };
 
+  // Live camera is impossible over plain HTTP (browsers require HTTPS), and
+  // can fail on permission/hardware. Either way, fall back to the device's
+  // own camera/file picker — phones open the camera app there — but say why,
+  // since on a desktop PC that fallback is just a file browser.
+  const fallBackToPicker = (reason) => {
+    toast(reason + " Opening your device's camera / file picker instead.", { icon: "📷", duration: 6000 });
+    nativeCamRef.current?.click();
+  };
+
   const startCamera = async () => {
     setOpen(false);
 
     if (!canUseGetUserMedia()) {
-      nativeCamRef.current?.click();
+      // Tablets/phones: the picker opens the device camera app — that's the
+      // normal path over HTTP, so no message. Desktop: explain the file browser.
+      if (window.matchMedia?.("(pointer: coarse)").matches) nativeCamRef.current?.click();
+      else fallBackToPicker("Live camera needs a secure (HTTPS) connection.");
       return;
     }
 
@@ -295,8 +308,13 @@ const ImageZone = ({ onFile, uploadRef }) => {
       });
       streamRef.current = stream;
       setShowCam(true);
-    } catch {
-      nativeCamRef.current?.click();
+    } catch (err) {
+      fallBackToPicker(
+        err?.name === "NotAllowedError" ? "Camera permission was denied."
+        : err?.name === "NotFoundError" ? "No camera was found."
+        : err?.name === "NotReadableError" ? "The camera is in use by another application."
+        : "The camera could not be opened.",
+      );
     }
   };
 
@@ -309,12 +327,21 @@ const ImageZone = ({ onFile, uploadRef }) => {
 
   const capturePhoto = () => {
     const video = videoRef.current;
-    if (!video) return;
+    // Before the first frame arrives videoWidth is 0 — capturing then saved an
+    // empty "photo".
+    if (!video?.videoWidth) {
+      toast.error("Camera is still starting — try again in a moment.");
+      return;
+    }
     const canvas = document.createElement("canvas");
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
     canvas.toBlob((blob) => {
+      if (!blob) {
+        toast.error("Could not capture the photo — please try again.");
+        return;
+      }
       const file = new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" });
       onFile({ target: { files: [file] } });
       stopCamera();
@@ -351,7 +378,7 @@ const ImageZone = ({ onFile, uploadRef }) => {
             inside the conditional dropdown, React would unmount them the
             moment the dropdown closes and the returning photo's change
             event would have no element left to land on. */}
-        <input ref={setUploadRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={onFile} />
+        <input ref={setUploadRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
         <input ref={nativeCamRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
 
         {open && (
@@ -482,7 +509,10 @@ const AuditEntry = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRefs = useRef({});
 
-  // Keyboard shortcut handler
+  // Keyboard shortcut handler. Ctrl+Enter goes through submitRef (refreshed
+  // every render) — calling handleSubmit directly here captured the version
+  // from when this effect last ran, which submitted stale sections over newer edits.
+  const submitRef = useRef(null);
   useEffect(() => {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "p") {
@@ -491,7 +521,7 @@ const AuditEntry = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
-        handleSubmit();
+        submitRef.current?.();
       }
       if (e.key === "Escape" && imagePreview) {
         setImagePreview(null);
@@ -575,28 +605,32 @@ const AuditEntry = () => {
   }, [isModelError, debouncedSerial]);
 
   // ==================== Image Handlers ====================
-  const processImageFile = (file) =>
-    new Promise((resolve, reject) => {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        reject(new Error("Invalid type. Use JPG, PNG, GIF, or WebP."));
-        return;
-      }
-      if (file.size > MAX_FILE_SIZE) {
-        reject(new Error("File exceeds 5MB limit."));
-        return;
-      }
+  const processImageFile = async (file) => {
+    if (!file.type.startsWith("image/")) throw new Error("Please choose a photo (JPG or PNG).");
+    if (file.size > MAX_SOURCE_SIZE) throw new Error("Photo is too large (over 25 MB).");
+
+    const original = await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) =>
-        resolve({
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          data: e.target.result,
-          uploadedAt: new Date().toISOString(),
-        });
+      reader.onload = (e) => resolve(e.target.result);
       reader.onerror = () => reject(new Error("Failed to read file."));
       reader.readAsDataURL(file);
     });
+
+    let data;
+    try {
+      data = await redrawAsJpeg(original, MAX_PHOTO_SIDE, PHOTO_QUALITY);
+    } catch {
+      throw new Error("This photo format can't be read here. Please use a JPG or PNG photo.");
+    }
+
+    return {
+      name: `${file.name.replace(/\.[^.]+$/, "") || "photo"}.jpg`,
+      type: "image/jpeg",
+      size: Math.round((data.length - data.indexOf(",") - 1) * 0.75),
+      data,
+      uploadedAt: new Date().toISOString(),
+    };
+  };
 
   const handleImageUpload = async (
     sectionId,
@@ -815,7 +849,9 @@ const AuditEntry = () => {
           const mergedCp = { ...cp };
           for (const [key, value] of Object.entries(cp)) {
             const isUnsavedImage = value !== null && typeof value === "object" && typeof value.data === "string";
-            if (isUnsavedImage && typeof savedCp[key] === "string") {
+            // string = saved filename; null = server rejected the photo, so drop
+            // the local copy too (otherwise it looks saved and is re-sent forever).
+            if (isUnsavedImage && (typeof savedCp[key] === "string" || savedCp[key] === null)) {
               mergedCp[key] = savedCp[key];
               cpChanged = true;
             }
@@ -1296,6 +1332,11 @@ const AuditEntry = () => {
             setSections((prev) => mergeSavedImageFilenames(prev, savedAudit.sections));
           }
 
+          // Shown even on silent autosave — a lost evidence photo must not go unnoticed.
+          savedAudit?.imageErrors?.forEach((f) =>
+            toast.error(`Photo for "${f.checkPoint || f.field}" could not be saved: ${f.error}. Please retake it.`, { duration: 8000 }),
+          );
+
           setAutoSaveStatus("idle");
           if (showToast) {
             const message = status === "submitted" ? "Audit submitted successfully!" : "Audit saved as draft";
@@ -1399,6 +1440,7 @@ const AuditEntry = () => {
 
     await persistAudit({ status: "submitted", silent: false, showToast: true, navigateAfterSave: true, showBusyUi: true });
   };
+  submitRef.current = handleSubmit;
 
   // Save as Draft
   const handleSaveAsDraft = async () => {

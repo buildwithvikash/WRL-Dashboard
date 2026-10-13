@@ -13,6 +13,22 @@ const IMAGE_DIR = DIRS.auditImages;
 const { allowedMimes, maxSize } = UPLOAD_CONFIGS.auditImage;
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
 
+// Extension always comes from the validated type, never the client's file
+// name — otherwise "x.html" with an image/png data-URL lands on disk as .html
+// and is served as a web page from /uploads.
+const EXT_BY_MIME = { "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png" };
+
+// Exactly what generateImageFileName produces. Anything else (a remark that
+// happens to end in ".png", or "../other/file.png" planted in audit JSON) is
+// never treated as one of our files.
+export const SAVED_IMAGE_NAME = /^[A-Za-z0-9_-]+_\d{13}_[0-9a-f]{16}\.(jpe?g|png)$/i;
+
+// Magic bytes: the data-URL's declared type is client-controlled.
+const looksLikeImage = (buf, mime) =>
+  mime === "image/png"
+    ? buf.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+    : buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+
 /* ===================== HELPERS ===================== */
 
 /**
@@ -69,8 +85,11 @@ export const saveImageFromBase64 = async ({
 
   const buffer = Buffer.from(base64Clean, "base64");
   validateImage(mimeType, buffer.length);
+  if (!looksLikeImage(buffer, mimeType)) {
+    throw new Error(`File content is not a valid ${mimeType} image`);
+  }
 
-  const uniqueName = generateImageFileName(fileName, auditCode);
+  const uniqueName = generateImageFileName(`image${EXT_BY_MIME[mimeType]}`, auditCode);
   const filePath = getImageFilePath(uniqueName);
 
   await writeFileAsync(filePath, buffer);
@@ -94,8 +113,11 @@ export const saveImageFromBase64 = async ({
 export const saveUploadedImage = async (file, auditCode = "") => {
   if (!file) throw new Error("No file provided");
   validateImage(file.mimetype, file.size);
+  if (!looksLikeImage(file.buffer, file.mimetype)) {
+    throw new Error(`File content is not a valid ${file.mimetype} image`);
+  }
 
-  const uniqueName = generateImageFileName(file.originalname, auditCode);
+  const uniqueName = generateImageFileName(`image${EXT_BY_MIME[file.mimetype]}`, auditCode);
   const filePath = getImageFilePath(uniqueName);
 
   await writeFileAsync(filePath, file.buffer);
@@ -120,7 +142,10 @@ export const saveUploadedImage = async (file, auditCode = "") => {
  * Deletes a single image by filename. Returns false if not found.
  */
 export const deleteImage = async (fileName) => {
-  if (!fileName) return false;
+  // Names reach here from stored audit JSON, which the client supplied —
+  // refuse anything that isn't one of our own saved image names, so a
+  // planted "../BISSignatures/x.png" can never unlink a file elsewhere.
+  if (!fileName || !SAVED_IMAGE_NAME.test(fileName)) return false;
   const filePath = getImageFilePath(fileName);
   if (!fs.existsSync(filePath)) return false;
   await unlinkAsync(filePath);

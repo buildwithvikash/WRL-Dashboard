@@ -1,6 +1,7 @@
 import {
   saveImageFromBase64,
   deleteMultipleImages,
+  SAVED_IMAGE_NAME,
 } from "./storage/imageStorage.js";
 
 /* ===================== HELPERS ===================== */
@@ -12,10 +13,11 @@ const isImageObject = (value) =>
   value !== null && typeof value === "object" && typeof value.data === "string";
 
 /**
- * Returns true if a string looks like an image filename.
+ * Returns true if a string is an image filename this server saved — not just
+ * any text ending in ".png" (e.g. a remark like "see drawing rev2.png").
  */
 const isImageFilename = (value) =>
-  typeof value === "string" && /\.(jpg|jpeg|png)$/i.test(value);
+  typeof value === "string" && SAVED_IMAGE_NAME.test(value);
 
 /**
  * Processes a single checkpoint object:
@@ -23,7 +25,7 @@ const isImageFilename = (value) =>
  * - Saves them to disk, replaces the field value with the saved filename
  * - Collects metadata for each saved image into savedImages[]
  */
-const processCheckpoint = async (checkpoint, auditCode, savedImages) => {
+const processCheckpoint = async (checkpoint, auditCode, savedImages, failedImages) => {
   const processed = { ...checkpoint };
 
   for (const [key, value] of Object.entries(checkpoint)) {
@@ -46,6 +48,12 @@ const processCheckpoint = async (checkpoint, auditCode, savedImages) => {
     } catch (error) {
       console.error(`Error saving image for field "${key}":`, error);
       processed[key] = null;
+      failedImages.push({
+        checkpointId: checkpoint.id,
+        checkPoint: checkpoint.checkPoint,
+        field: key,
+        error: error.message,
+      });
     }
   }
 
@@ -70,12 +78,13 @@ const extractFromCheckpoint = (checkpoint, out) => {
  *
  * @param {Array}  sections  - Audit sections array
  * @param {string} auditCode - Used as filename prefix
- * @returns {{ sections: Array, savedImages: Array }}
+ * @returns {{ sections: Array, savedImages: Array, failedImages: Array }}
  */
 export const processAuditImages = async (sections, auditCode) => {
-  if (!Array.isArray(sections)) return { sections: [], savedImages: [] };
+  if (!Array.isArray(sections)) return { sections: [], savedImages: [], failedImages: [] };
 
   const savedImages = [];
+  const failedImages = [];
 
   const processedSections = await Promise.all(
     sections.map(async (section) => {
@@ -90,7 +99,7 @@ export const processAuditImages = async (sections, auditCode) => {
               ...stage,
               checkPoints: await Promise.all(
                 stage.checkPoints.map((cp) =>
-                  processCheckpoint(cp, auditCode, savedImages),
+                  processCheckpoint(cp, auditCode, savedImages, failedImages),
                 ),
               ),
             };
@@ -100,7 +109,7 @@ export const processAuditImages = async (sections, auditCode) => {
         // Old (flat) structure: section → checkPoints[]
         processed.checkPoints = await Promise.all(
           section.checkPoints.map((cp) =>
-            processCheckpoint(cp, auditCode, savedImages),
+            processCheckpoint(cp, auditCode, savedImages, failedImages),
           ),
         );
       }
@@ -109,7 +118,7 @@ export const processAuditImages = async (sections, auditCode) => {
     }),
   );
 
-  return { sections: processedSections, savedImages };
+  return { sections: processedSections, savedImages, failedImages };
 };
 
 /**
@@ -137,16 +146,6 @@ export const extractImageFilenames = (sections) => {
   }
 
   return filenames;
-};
-
-/**
- * Deletes all images associated with an audit.
- */
-export const deleteAuditImages = async (sections) => {
-  const filenames = extractImageFilenames(sections);
-  if (!filenames.length) return { success: true, deletedCount: 0 };
-  console.log(`Deleting ${filenames.length} images from audit`);
-  return deleteMultipleImages(filenames);
 };
 
 /**
