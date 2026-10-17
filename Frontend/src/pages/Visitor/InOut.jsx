@@ -429,7 +429,7 @@ const InOut = () => {
                           </div>
                           <div className="flex items-center gap-2 justify-center lg:justify-start">
                             <MdLocationOn className="text-red-500" />
-                            <span>{visitor.vehicle_details || "N/A"}</span>
+                            <span>{visitor.city || "N/A"}</span>
                           </div>
                         </div>
                       </div>

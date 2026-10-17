@@ -6,11 +6,30 @@ import { AppError } from "../../utils/AppError.js";
 // Generate Visitor Pass
 export const generateVisitorPass = tryCatch(async (req, res, next) => {
   const {
-    name, contactNo, email, company, noOfPeople, nationality,
-    identityType, identityNo, address, country, state, city,
-    vehicleDetails, allowOn, allowTill, departmentTo, employeeTo,
-    visitType, token, specialInstruction, purposeOfVisit, createdBy,
-    visitorPhoto, companions,
+    name,
+    contactNo,
+    email,
+    company,
+    noOfPeople,
+    nationality,
+    identityType,
+    identityNo,
+    address,
+    country,
+    state,
+    city,
+    vehicleDetails,
+    allowOn,
+    allowTill,
+    departmentTo,
+    employeeTo,
+    visitType,
+    token,
+    specialInstruction,
+    purposeOfVisit,
+    createdBy,
+    visitorPhoto,
+    companions,
   } = req.body;
 
   if (!name || !contactNo) {
@@ -63,8 +82,7 @@ export const generateVisitorPass = tryCatch(async (req, res, next) => {
     .input("Country", sql.VarChar(100), country || null)
     .input("State", sql.VarChar(100), state || null)
     .input("City", sql.VarChar(100), city || null)
-    .input("VehicleDetails", sql.VarChar(100), vehicleDetails || null)
-    .query(`
+    .input("VehicleDetails", sql.VarChar(100), vehicleDetails || null).query(`
       UPDATE visitors SET
         name            = LEFT(@Name, 150),
         photo_url       = COALESCE(@Photo, photo_url),
@@ -110,8 +128,7 @@ export const generateVisitorPass = tryCatch(async (req, res, next) => {
     .input("VehicleDetails", sql.VarChar(100), vehicleDetails || null)
     .input("Status", sql.VarChar(10), "1")
     .input("PurposeOfVisit", sql.VarChar(255), purposeOfVisit || null)
-    .input("Token", sql.NVarChar(50), token || null)
-    .query(`
+    .input("Token", sql.NVarChar(50), token || null).query(`
       INSERT INTO visitor_passes (
         pass_id, visitor_id, visitor_photo, visitor_name, visitor_contact_no,
         visitor_email, department_to_visit, employee_to_visit, visit_type,
@@ -135,7 +152,9 @@ export const generateVisitorPass = tryCatch(async (req, res, next) => {
       .input("Name", sql.VarChar(255), person.name || null)
       .input("Phone", sql.VarChar(20), person.phone || null)
       .input("Photo", sql.Text, person.photo || null)
-      .query(`INSERT INTO VisitorPassCompanions (PassId, Name, Phone, Photo) VALUES (@PassId, @Name, @Phone, @Photo)`);
+      .query(
+        `INSERT INTO VisitorPassCompanions (PassId, Name, Phone, Photo) VALUES (@PassId, @Name, @Phone, @Photo)`,
+      );
   }
 
   await pool.close();
@@ -183,41 +202,62 @@ export const getVisitorPassDetails = tryCatch(async (req, res, next) => {
   }
 
   const pool = await new sql.ConnectionPool(dbConfig3).connect();
-  const result = await pool.request().input("PassId", sql.VarChar(50), passId)
-    .query(`
-      SELECT
-        vp.visitor_photo,
-        vp.pass_id,
-        vp.visitor_name,
-        vp.visitor_contact_no,
-        vp.visitor_email,
-        vp.allow_on,
-        vp.allow_till,
-        d.department_name,
-        u.name AS employee_name,
-        v.company,
-        v.city,
-        vp.purpose_of_visit
-      FROM visitor_passes vp
-      JOIN visitors v ON v.visitor_id = vp.visitor_id
-      LEFT JOIN departments d ON vp.department_to_visit = d.deptCode
-      LEFT JOIN users u ON vp.employee_to_visit = u.employee_id
-      WHERE vp.pass_id = @PassId
-    `);
 
-  if (!result.recordset.length) {
+  try {
+    const result = await pool.request().input("PassId", sql.VarChar(50), passId)
+      .query(`
+        SELECT
+          vp.pass_id,
+          vp.visitor_photo,
+          vp.visitor_name,
+          vp.visitor_contact_no,
+          vp.visitor_email,
+          vp.allow_on,
+          vp.allow_till,
+          vp.special_instructions,
+          vp.purpose_of_visit,
+          vp.company,
+          vp.department_to_visit,
+          vp.employee_to_visit,
+          d.department_name,
+          u.name AS employee_name,
+          v.city
+        FROM visitor_passes vp
+        LEFT JOIN visitors v
+          ON v.visitor_id = vp.visitor_id
+        LEFT JOIN departments d
+          ON vp.department_to_visit = d.deptCode
+        LEFT JOIN users u
+          ON vp.employee_to_visit = u.employee_id
+        WHERE vp.pass_id = @PassId
+      `);
+
+    if (!result.recordset.length) {
+      throw new AppError("Visitor pass not found", 404);
+    }
+
+    const companionsResult = await pool
+      .request()
+      .input("PassId", sql.VarChar(50), passId).query(`
+        SELECT
+          Name AS name,
+          Phone AS phone,
+          Photo AS photo
+        FROM VisitorPassCompanions
+        WHERE PassId = @PassId
+      `);
+
+    const pass = result.recordset[0];
+
+    res.status(200).json({
+      success: true,
+      message: "Visitor pass details fetched successfully",
+      data: {
+        ...pass,
+        companions: companionsResult.recordset,
+      },
+    });
+  } finally {
     await pool.close();
-    throw new AppError("Visitor pass not found", 404);
   }
-
-  const companions = await pool.request().input("PassId", sql.VarChar(50), passId)
-    .query(`SELECT Name AS name, Phone AS phone, Photo AS photo FROM VisitorPassCompanions WHERE PassId = @PassId`);
-
-  await pool.close();
-
-  res.status(200).json({
-    success: true,
-    message: "Visitor pass details fetched successfully",
-    data: { ...result.recordset[0], companions: companions.recordset },
-  });
 });
