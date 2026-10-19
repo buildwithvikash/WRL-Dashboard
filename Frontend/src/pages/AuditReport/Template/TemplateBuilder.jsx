@@ -44,6 +44,7 @@ import { ROLES } from "../../../config/routes.config";
 import TemplateHistoryPanel from "./components/TemplateHistoryPanel";
 import { selectCheckpointLibrary } from "../../../redux/slices/masterConfigSlice";
 import { useAddCheckpointLibraryEntryMutation, useIncrementCheckpointUsageMutation } from "../../../redux/api/masterConfigApi";
+import { DEFAULT_IMAGE_CAPTURE_ITEMS } from "../constants/imageCapture.js";
 
 // ── Highlight matching text in search results ─────────────────────────────────
 const Highlight = ({ text = "", query = "" }) => {
@@ -98,7 +99,12 @@ const makeSection = () => ({
 // below guarantees that), independent of how many checklist sections exist.
 const makeImageCaptureSection = () => ({
   id: genId(), sectionName: "Image Capture", sectionType: "imageCapture",
-  stages: [{ id: genId(), stageName: "Photos", checkPoints: [] }],
+  stages: [{
+    id: genId(), stageName: "Photos",
+    checkPoints: DEFAULT_IMAGE_CAPTURE_ITEMS.map((name) => ({
+      id: genId(), checkPoint: name, method: "", specification: "", required: true,
+    })),
+  }],
 });
 
 const ensureImageCaptureSection = (sections) =>

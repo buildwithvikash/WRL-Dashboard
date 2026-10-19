@@ -29,7 +29,9 @@ import {
   FaTimes,
   FaShieldAlt,
   FaBan,
+  FaTrash,
 } from "react-icons/fa";
+import { ConfirmModal } from "../components/common";
 import { BiSolidFactory } from "react-icons/bi";
 import { MdOutlineFilterAltOff } from "react-icons/md";
 import { useSelector } from "react-redux";
@@ -37,6 +39,7 @@ import useAuditData from "../../../hooks/useAuditData";
 import { generateAuditPDF } from "../../../utils/generateAuditPDF";
 import { ROLES } from "../../../config/routes.config";
 import toast from "react-hot-toast";
+import { passRateOf, passRateLevel } from "../../../utils/auditPassRate.js";
 
 // ==================== CONSTANTS ====================
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -148,9 +151,7 @@ const exportToCSV = (rows, filename = "audits.csv") => {
       r.summary.na,
       r.summary.pending,
       r.summary.total,
-      r.summary.total > 0
-        ? Math.round((r.summary.pass / r.summary.total) * 100)
-        : 0,
+      passRateOf(r.summary),
     ]),
   ];
   const csv = csvRows
@@ -270,7 +271,7 @@ const AuditList = () => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
 
-  const { audits, templates, loadAudits, loadTemplates, getAuditById } =
+  const { audits, templates, loadAudits, loadTemplates, getAuditById, deleteAudit } =
     useAuditData();
 
   const { user } = useSelector((store) => store.auth);
@@ -278,6 +279,24 @@ const AuditList = () => {
   const isViewOnly = [user?.role, user?.roleName].includes(
     ROLES.QUALITY_AUDITOR,
   );
+  // Super Admin can delete drafts (e.g. abandoned/test entries). Soft delete
+  // on the server — hidden from lists, kept in the database with its history.
+  const isSuperAdmin = [user?.role, user?.roleName].includes(ROLES.SUPER_ADMIN);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDeleteDraft = async () => {
+    setDeleting(true);
+    try {
+      await deleteAudit(deleteTarget.id);
+      toast.success(`Draft ${deleteTarget.auditCode || ""} deleted`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to delete draft");
+    } finally {
+      setDeleting(false);
+    }
+  };
   // My Drafts tab — available to all users
   const [showMyDrafts, setShowMyDrafts] = useState(false);
 
@@ -493,11 +512,10 @@ const AuditList = () => {
     return "";
   }, []);
 
-  const getPassRate = (summary) =>
-    summary?.total > 0 ? Math.round((summary.pass / summary.total) * 100) : 0;
+  const getPassRate = passRateOf;
 
   const passRateColor = (r) =>
-    r >= 90 ? "text-green-600" : r >= 70 ? "text-amber-600" : "text-red-600";
+    ({ good: "text-green-600", fair: "text-amber-600", poor: "text-red-600" })[passRateLevel(r)];
 
   // ==================== ENRICHED ROWS ====================
   const enrichedAudits = useMemo(
@@ -1350,6 +1368,16 @@ const AuditList = () => {
                                   <FaEdit size={12} />
                                 </button>
                               )}
+                            {isSuperAdmin && audit.status === "draft" && (
+                              <button
+                                onClick={() => setDeleteTarget(audit)}
+                                className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 transition-all"
+                                title="Delete draft"
+                                aria-label="Delete draft"
+                              >
+                                <FaTrash size={12} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1599,6 +1627,16 @@ const AuditList = () => {
                               <FaEdit size={11} />
                             </button>
                           )}
+                        {isSuperAdmin && audit.status === "draft" && (
+                          <button
+                            onClick={() => setDeleteTarget(audit)}
+                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-all"
+                            title="Delete draft"
+                            aria-label="Delete draft"
+                          >
+                            <FaTrash size={11} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1636,6 +1674,27 @@ const AuditList = () => {
           </>
         )}
       </div>
+
+      {deleteTarget && (
+        <ConfirmModal
+          onClose={() => !deleting && setDeleteTarget(null)}
+          onConfirm={confirmDeleteDraft}
+          confirming={deleting}
+          icon={FaTrash}
+          title="Delete draft?"
+          subtitle={deleteTarget.auditCode}
+          confirmLabel="Delete draft"
+          confirmingLabel="Deleting…"
+        >
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">{deleteTarget.reportName || deleteTarget.templateName}</span>
+            {deleteTarget.createdBy ? <> — started by {deleteTarget.createdBy}</> : null}
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            The draft is removed from all lists. Its record and history are kept in the database.
+          </p>
+        </ConfirmModal>
+      )}
     </div>
   );
 };

@@ -50,6 +50,7 @@ import {
 } from "../../../utils/dateUtils.js";
 import { generateAuditPDF } from "../../../utils/generateAuditPDF.js";
 import { generateAuditExcel } from "../../../utils/generateAuditExcel.js";
+import { passRateOf, passRateLevel } from "../../../utils/auditPassRate.js";
 
 // ==================== CONSTANTS ====================
 const STATUS_CONFIG = {
@@ -431,8 +432,7 @@ const AuditView = () => {
   }, [audit]);
 
   const summary = useMemo(() => getSummary(), [getSummary]);
-  const passRate =
-    summary.total > 0 ? Math.round((summary.pass / summary.total) * 100) : 0;
+  const passRate = passRateOf(summary);
 
   // ==================== Info field value ====================
   const getInfoFieldValue = useCallback(
@@ -905,7 +905,7 @@ const AuditView = () => {
                 </div>
               )}
               <div
-                className={`text-xs font-bold ${passRate >= 90 ? "text-green-600" : passRate >= 70 ? "text-amber-600" : "text-red-600"}`}
+                className={`text-xs font-bold ${passRateLevel(passRate) === "good" ? "text-green-600" : passRateLevel(passRate) !== "poor" ? "text-amber-600" : "text-red-600"}`}
               >
                 {passRate}% pass rate
               </div>
@@ -1144,9 +1144,9 @@ const AuditView = () => {
                     <div className="flex items-center gap-2 mt-3">
                       <span
                         className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          passRate >= 90
+                          passRateLevel(passRate) === "good"
                             ? "bg-green-500/20 text-green-300"
-                            : passRate >= 70
+                            : passRateLevel(passRate) !== "poor"
                               ? "bg-amber-500/20 text-amber-300"
                               : "bg-red-500/20 text-red-300"
                         }`}
@@ -1161,9 +1161,11 @@ const AuditView = () => {
                 </div>
               </div>
 
-              <div className="bg-gray-50 divide-y divide-gray-100">
+              {/* Two columns from lg up so the details don't stretch the
+                  title panel into a tall empty block. */}
+              <div className="bg-gray-50 grid grid-cols-1 lg:grid-cols-2 content-start">
                 {template?.headerConfig?.showFormatNo !== false && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <MdFormatListNumbered className="text-xl text-indigo-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -1176,7 +1178,7 @@ const AuditView = () => {
                   </div>
                 )}
                 {template?.headerConfig?.showRevNo !== false && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <MdUpdate className="text-xl text-green-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -1189,7 +1191,7 @@ const AuditView = () => {
                   </div>
                 )}
                 {template?.headerConfig?.showRevDate !== false && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <MdDateRange className="text-xl text-purple-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -1202,7 +1204,7 @@ const AuditView = () => {
                   </div>
                 )}
                 {audit.startedAt && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <FaClock className="text-xl text-indigo-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -1215,7 +1217,7 @@ const AuditView = () => {
                   </div>
                 )}
                 {audit.submittedAt && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <FaCheckCircle className="text-xl text-emerald-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -1228,7 +1230,7 @@ const AuditView = () => {
                   </div>
                 )}
                 {audit.startedAt && audit.submittedAt && (
-                  <div className="p-3.5 flex items-center gap-3">
+                  <div className="p-3.5 flex items-center gap-3 border-b border-gray-100 lg:odd:border-r">
                     <FaHourglassHalf className="text-xl text-purple-500 flex-shrink-0" />
                     <div>
                       <span className="text-[10px] text-gray-400 uppercase tracking-widest block">
@@ -1387,6 +1389,13 @@ const AuditView = () => {
             {audit.sections?.map((section) => {
               const hasStages = section.stages && Array.isArray(section.stages);
               const isCollapsed = collapsedSections[section.id];
+              // Stage-based sections show the section as the bar above the table and
+              // draw no Section cell, so the header must skip that column too —
+              // otherwise every value sits one column to the right of its heading.
+              // Old flat sections still draw a (row-spanning) Section cell.
+              const sectionColumns = section.stages
+                ? visibleColumns.filter((c) => c.id !== "section")
+                : visibleColumns;
               const stats = getSectionStats(section);
               const sPct =
                 stats.total > 0
@@ -1463,7 +1472,7 @@ const AuditView = () => {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-200">
-                            {visibleColumns.map((col) => (
+                            {sectionColumns.map((col) => (
                               <th
                                 key={col.id}
                                 className={`px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide border-r border-gray-200 last:border-r-0 whitespace-nowrap ${col.width || ""} ${
@@ -1507,7 +1516,7 @@ const AuditView = () => {
                                       key={`${stage.id || "s"}-${checkpoint.id || cpIdx}`}
                                       className={`border-b border-gray-100 last:border-b-0 hover:bg-slate-50/80 transition-colors ${statusCfg.rowBg}`}
                                     >
-                                      {visibleColumns.map((col) => {
+                                      {sectionColumns.map((col) => {
                                         if (col.id === "section") return null;
 
                                         if (col.id === "stage") {
@@ -1572,7 +1581,7 @@ const AuditView = () => {
                                       key={`${checkpoint.id || cpIdx}`}
                                       className={`border-b border-gray-100 last:border-b-0 hover:bg-slate-50/80 transition-colors ${statusCfg.rowBg}`}
                                     >
-                                      {visibleColumns.map((col) => {
+                                      {sectionColumns.map((col) => {
                                         if (col.id === "section") {
                                           if (cpIdx === 0) {
                                             return (
@@ -1721,7 +1730,7 @@ const AuditView = () => {
                       Overall Progress
                     </span>
                     <span
-                      className={`text-sm font-black ${passRate >= 90 ? "text-green-600" : passRate >= 70 ? "text-amber-600" : "text-red-600"}`}
+                      className={`text-sm font-black ${passRateLevel(passRate) === "good" ? "text-green-600" : passRateLevel(passRate) !== "poor" ? "text-amber-600" : "text-red-600"}`}
                     >
                       {passRate}% pass rate
                     </span>

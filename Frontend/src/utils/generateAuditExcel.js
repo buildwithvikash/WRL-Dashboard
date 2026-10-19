@@ -1,8 +1,9 @@
 import ExcelJS from "exceljs";
 import { getWrlLogoBase64, LOGO_ASPECT } from "./reportLogo.js";
 import { imageKey, resolveCheckpointImages } from "./auditImageResolver.js";
-import { formatDuration } from "./dateUtils.js";
+import { formatDuration, formatDateForDisplay } from "./dateUtils.js";
 import { buildAuditFilename } from "./auditFilename.js";
+import { passRateOf, passRateLevel } from "./auditPassRate.js";
 
 // Mirrors generateAuditPDF.js's content/layout (same header band, meta
 // fields, checkpoint sections with photos, summary, signatures) but as one
@@ -42,7 +43,7 @@ const fmtTime = (d) => {
   try {
     const dt = new Date(d);
     if (isNaN(dt)) return "-";
-    return dt.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
+    return dt.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true } /* same as formatDateTimeForDisplay (screens) */);
   } catch { return "-"; }
 };
 
@@ -183,7 +184,8 @@ export const generateAuditExcel = async (audit) => {
     sectionHeading("Audit Information");
     infoFields.forEach((f) => {
       const value = infoData[f.id] ?? infoData[f.name] ?? "-";
-      labelValueRow(f.name, String(value));
+      // Same date format as the screens (stored as YYYY-MM-DD)
+      labelValueRow(f.name, f.id === "date" ? formatDateForDisplay(value) : String(value));
     });
     row++;
   }
@@ -269,7 +271,7 @@ export const generateAuditExcel = async (audit) => {
   sectionHeading("Audit Summary");
   const sum = audit.summary || {};
   const total = sum.total || 0;
-  const passRate = total > 0 ? Math.round((sum.pass / total) * 100) : 0;
+  const passRate = passRateOf(sum);
 
   const summaryItems = [
     { label: "Total Checkpoints", value: total,            color: C.black },
@@ -278,7 +280,7 @@ export const generateAuditExcel = async (audit) => {
     { label: "Warning",           value: sum.warning || 0, color: C.warning },
     { label: "N/A",               value: sum.na || 0,      color: C.info },
     { label: "Pending",           value: sum.pending || 0, color: C.gray },
-    { label: "Pass Rate",         value: `${passRate}%`,   color: passRate >= 80 ? C.success : passRate >= 60 ? C.warning : C.danger },
+    { label: "Pass Rate",         value: `${passRate}%`,   color: { good: C.success, fair: C.warning, poor: C.danger }[passRateLevel(passRate)] },
   ];
   const labelRow = sheet.getRow(row);
   const valueRow = sheet.getRow(row + 1);
