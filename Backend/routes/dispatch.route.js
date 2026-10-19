@@ -1,6 +1,6 @@
 import express from "express";
 import { authenticate } from "../middlewares/auth.js";
-import { requireRoles } from "../middlewares/roleGuard.js";
+import { requireRoles } from "../middlewares/role-guard.js";
 import {
   getDispatchCategoryModelCount,
   getDispatchCategorySummary,
@@ -8,22 +8,22 @@ import {
   getDispatchModelSummary,
   getDispatchVehicleSummary,
   getDispatchVehicleUPH,
-} from "../controllers/dispatch/performanceReport.controller.js";
+} from "../controllers/dispatch/performance-report.controller.js";
 import {
   getFgDispatch,
   getFgUnloading,
   getQuickFgDispatch,
   getQuickFgUnloading,
-} from "../controllers/dispatch/dispatchReport.controller.js";
-import { getDispatchMasterBySession } from "../controllers/dispatch/fgCasting.controller.js";
-import { sendMaterialGateEntryAlertEmail } from "../controllers/dispatch/gateEntry.controller.js";
-import { getDispatchErrorLog } from "../controllers/dispatch/errorLog.controller.js";
+} from "../controllers/dispatch/report.controller.js";
+import { getDispatchMasterBySession } from "../controllers/dispatch/fg-casting.controller.js";
+import { sendMaterialGateEntryAlertEmail } from "../controllers/dispatch/gate-entry.controller.js";
+import { getDispatchErrorLog } from "../controllers/dispatch/error-log.controller.js";
 import {
   fetchDispatchErrorSerials,
   removeDispatchErrorSerials,
-} from "../controllers/dispatch/removeDispatchError.controller.js";
-import { getFGDispatchReport } from "../controllers/dispatch/getFGDispatchReport.controller.js";
-import { scanFgUnloading } from "../controllers/dispatch/fgUnloadingScan.controller.js";
+} from "../controllers/dispatch/remove-dispatch-error.controller.js";
+import { getFGDispatchReport } from "../controllers/dispatch/fg-dispatch-report.controller.js";
+import { scanFgUnloading } from "../controllers/dispatch/fg-unloading-scan.controller.js";
 import {
   createOrResumeSession,
   getOpenSessions,
@@ -31,7 +31,7 @@ import {
   scanFgDispatch,
   completeDispatch,
   removeFgFromSession,
-} from "../controllers/dispatch/fgDispatchScan.controller.js";
+} from "../controllers/dispatch/fg-dispatch-scan.controller.js";
 
 const router = express.Router();
 

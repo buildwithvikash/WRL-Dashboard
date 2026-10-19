@@ -18,7 +18,7 @@ import {
   syncDeptConfig,
   getHRConfig,
   updateHRConfig,
-} from "../controllers/employeeManagement/gatepass.controller.js";
+} from "../controllers/employee-management/gatepass.controller.js";
 
 const router = express.Router();
 

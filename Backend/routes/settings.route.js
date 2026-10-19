@@ -4,7 +4,7 @@ import {
   updateMailServerConfig,
   resetMailServerConfig,
   testMailServerConfig,
-} from "../controllers/settings/mailServer.controller.js";
+} from "../controllers/settings/mail-server.controller.js";
 import {
   getUsers,
   getRoles,
@@ -18,9 +18,9 @@ import {
   resetPassword,
   forceLogoutSession,
   forceLogoutAll,
-} from "../controllers/settings/userAccess.controller.js";
+} from "../controllers/settings/user-access.controller.js";
 import { authenticate } from "../middlewares/auth.js";
-import { requireSuperAdmin } from "../middlewares/roleGuard.js";
+import { requireSuperAdmin } from "../middlewares/role-guard.js";
 
 const router = express.Router();
 

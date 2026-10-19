@@ -9,28 +9,28 @@ import {
   addUser,
   updateUser,
   deleteUser,
-} from "../controllers/visitor/manageEmployee.controller.js";
+} from "../controllers/visitor-management/manage-employees.controller.js";
 import {
   generateVisitorPass,
   fetchPreviousPass,
   getVisitorPassDetails,
-} from "../controllers/visitor/generatepass.controller.js";
+} from "../controllers/visitor-management/generate-pass.controller.js";
 import {
   visitorIn,
   visitorOut,
   getVisitorLogs,
-} from "../controllers/visitor/inOut.controller.js";
+} from "../controllers/visitor-management/in-out.controller.js";
 import {
   fetchVisitors,
   sendVisitorReport,
   getCompanies,
   searchByCompany,
-} from "../controllers/visitor/reports.controller.js";
-import { getDashboardStats } from "../controllers/visitor/dashboard.controller.js";
+} from "../controllers/visitor-management/reports.controller.js";
+import { getDashboardStats } from "../controllers/visitor-management/dashboard.controller.js";
 import {
   getAllVisitors,
   getVisitorDetails,
-} from "../controllers/visitor/history.controller.js";
+} from "../controllers/visitor-management/history.controller.js";
 
 const router = express.Router();
 

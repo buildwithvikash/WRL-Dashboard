@@ -11,15 +11,14 @@ import {
   dbConfig3,
   dbConfig4,
 } from "./config/db.config.js";
-import { startCalibrationCron } from "./cron/calibrationEscalation.js";
-import { startManpowerCron } from "../Backend/cron/manpower.cron.js";
-import { startShiftEndReportCron } from "./cron/shiftEndReport.cron.js";
-import { startFactoryOsSyncCron } from "./cron/factoryOsSync.cron.js";
-import { startAutoAddNotPlannedFgCron } from "./cron/autoAddNotPlannedFg.cron.js";
-import { startChemBulkStorageReportCron } from "./cron/chemBulkStorageReport.cron.js";
-import { globalErrorHandler } from "./middlewares/errorHandler.js";
+import { startCalibrationCron } from "./cron-jobs/calibration-escalation.js";
+import { startShiftEndReportCron } from "./cron-jobs/shift-end-report.js";
+import { startFactoryOsSyncCron } from "./cron-jobs/factory-os-sync.js";
+import { startAutoAddNotPlannedFgCron } from "./cron-jobs/autoadd-not-planned-fg.js";
+import { startChemBulkStorageReportCron } from "./cron-jobs/chemical-bulk-storage-report.js";
+import { globalErrorHandler } from "./middlewares/error-handler.js";
 import { runMigrations } from "./config/migrations.js";
-import { runGarudaMigrations } from "./config/garudaMigrations.js";
+import { runGarudaMigrations } from "./config/garuda-migrations.js";
 import { rebuildSmtpTransporter } from "./config/email.config.js";
 // const _dirname = path.resolve();
 
@@ -52,7 +51,10 @@ app.use("/uploads", express.static(path.resolve("uploads"))); // Static files
     // pool3 is up — the transporter built at module-load time (email.config.js)
     // only had .env to go on, since it runs before this IIFE.
     rebuildSmtpTransporter(global.pool3).catch((err) =>
-      console.error("[Mail] Failed to load DB-saved SMTP override at startup:", err.message),
+      console.error(
+        "[Mail] Failed to load DB-saved SMTP override at startup:",
+        err.message,
+      ),
     );
 
     // Server 2 (WWMS) and Server 4 (CLMS/attendance) both have local backups
@@ -107,7 +109,6 @@ app.listen(PORT, () => {
 // server's .env should set ENABLE_CRON=true.
 if (process.env.ENABLE_CRON === "true") {
   startCalibrationCron();
-  startManpowerCron();
   startShiftEndReportCron();
   startFactoryOsSyncCron();
   startAutoAddNotPlannedFgCron();

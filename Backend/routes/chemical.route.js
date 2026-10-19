@@ -2,9 +2,9 @@ import { Router } from "express";
 import { authenticate } from "../middlewares/auth.js";
 import {
   getRecipients, createRecipient, updateRecipient, deleteRecipient, testRecipient, sendReportNow,
-} from "../controllers/chemical/chemBulkStorageRecipients.controller.js";
+} from "../controllers/chemical-storage/recipients.controller.js";
 
-import { getCurrentLevels, getDailyReport, getReadings } from "../controllers/chemical/chemReports.controller.js";
+import { getCurrentLevels, getDailyReport, getReadings } from "../controllers/chemical-storage/reports.controller.js";
 
 const router = Router();
 

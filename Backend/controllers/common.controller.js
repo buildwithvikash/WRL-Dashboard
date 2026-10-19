@@ -1,7 +1,7 @@
 import sql from "mssql";
 import { dbConfig1, dbConfig3 } from "../config/db.config.js";
-import { tryCatch } from "../utils/tryCatch.js";
-import { AppError } from "../utils/AppError.js";
+import { tryCatch } from "../utils/try-catch.js";
+import { AppError } from "../utils/app-error.js";
 
 // Fetches a list of active model variants from the **Material** table.
 export const getModelVariants = tryCatch(async (_, res) => {

@@ -8,7 +8,7 @@ import {
   planStatusData,
   productionPlaningData,
   updateProductionPlaningData,
-} from "../controllers/planing/productionPlaning.controller.js";
+} from "../controllers/planing/production-planing.controller.js";
 const router = express.Router();
 
 // -----------------> Production Planing Routes
