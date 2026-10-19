@@ -1,7 +1,7 @@
 import sql from "mssql";
 import { dbConfig3 } from "../../config/db.config.js";
-import { tryCatch } from "../../utils/tryCatch.js";
-import { AppError } from "../../utils/AppError.js";
+import { tryCatch } from "../../utils/try-catch.js";
+import { AppError } from "../../utils/app-error.js";
 
 const getPool = async () => {
   if (global.pool3) return global.pool3;

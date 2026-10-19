@@ -1,6 +1,6 @@
 import sql from "mssql";
 import { dbConfig3 } from "../config/db.config.js";
-import { sendCalibrationMail } from "../emailTemplates/Calibration_System/calibrationMail.template.js";
+import { sendCalibrationMail } from "../emailTemplates/calibration-system/calibrationMail.template.js";
 import { ESCALATION_RECIPIENTS } from "../utils/escalation.js";
 
 export const runCalibrationEscalation = async () => {

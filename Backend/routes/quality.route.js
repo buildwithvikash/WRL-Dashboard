@@ -4,7 +4,7 @@ import {
   newAssetTagUpdate,
   newCustomerQrUpdate,
   getTagUpdateLogs,          // ← BUG FIX: was not imported or routed
-} from "../controllers/quality/tagUpdate.controller.js";
+} from "../controllers/quality/tag-update.controller.js";
 
 // … all your other imports remain unchanged …
 import express from "express";
@@ -12,56 +12,56 @@ import { authenticate } from "../middlewares/auth.js";
 import {
   addDefect, getAssetDetails, getDefectCategory, getFpaCount,
   getFpaDefect, getFPQIDetails,
-} from "../controllers/quality/fpa.controller.js";
+} from "../controllers/quality/fpa/fpa.controller.js";
 import {
   downloadDefectImage, getFpaDailyReport, getFpaMonthlyReport,
   getFpaReport, getFpaYearlyReport,
-} from "../controllers/quality/fpaReport.controller.js";
+} from "../controllers/quality/fpa/fpa-report.controller.js";
 import {
   addLptDefect, getLptAssetDetails, getLptDefectCategory,
   getLptDefectCount, getLptDefectReport,
-} from "../controllers/quality/lpt.controller.js";
-import { getLptReport, getLptModelSummary } from "../controllers/quality/lptReport.controller.js";
-import { getMassFlowReport } from "../controllers/quality/massFlowReport.controller.js";
+} from "../controllers/quality/lpt/lpt.controller.js";
+import { getLptReport, getLptModelSummary } from "../controllers/quality/lpt/lpt-report.controller.js";
+import { getMassFlowReport } from "../controllers/quality/mass-flow-meter-report.controller.js";
 import {
   deleteLptRecipe, getLptRecipe, insertLptRecipe, updateLptRecipe,
-} from "../controllers/quality/lptRecipe.controller.js";
+} from "../controllers/quality/lpt/lpt-recipe.controller.js";
 import {
   getModlelName, holdCabinet, releaseCabinet,
-} from "../controllers/quality/dispatchHold.controller.js";
+} from "../controllers/quality/dispatch-hold.controller.js";
 import {
   handleMulterError, uploadBISReportPDF, uploadFpaDefectImage, uploadBisSignature,
   uploadBisModelPhoto,
-} from "../middlewares/uploadMiddleware.js";
+} from "../middlewares/upload-middleware.js";
 import {
   uploadBisPdfFile, getBisPdfFiles, downloadBisPdfFile,
   deleteBisPdfFile, updateBisPdfFile, getBisReportStatus,
   updateBisEnergyData, fetchBisEnergyData,
-} from "../controllers/quality/UploadBISReport.controller.js";
+} from "../controllers/quality/bis/upload-bis-report.controller.js";
 import {
   getBisCategories, createBisCategory, updateBisCategory, deleteBisCategory,
   getType100Materials, uploadBisCategoryPhoto,
   getBisModelSpecs, saveBisModelSpecs,
-} from "../controllers/quality/BisCategory.controller.js";
+} from "../controllers/quality/bis/bis-category.controller.js";
 import {
   getTestStalls, getTestLabDashboard, startTestRun, endTestRun,
-} from "../controllers/quality/BisTestLab.controller.js";
+} from "../controllers/quality/bis/bis-test-lab.controller.js";
 import {
   getBisTestFrequencyConfig, updateBisTestFrequencyConfig,
-} from "../controllers/quality/BisTestConfig.controller.js";
+} from "../controllers/quality/bis/bis-test-config.controller.js";
 import {
   getBisTestSchedule, createBisTestBaseline, updateBisTestBaseline,
-} from "../controllers/quality/BisTestSchedule.controller.js";
+} from "../controllers/quality/bis/bis-test-schedule.controller.js";
 import {
   createBisTestReport, getBisTestReports, getBisTestReportById,
   updateBisTestReport, deleteBisTestReport, getBisTestReportHistory,
   submitBisTestReportForReview, reviewBisTestReport, authorizeBisTestReport, getBisApprovalQueue,
-} from "../controllers/quality/BisTestReport.controller.js";
+} from "../controllers/quality/bis/bis-test-report.controller.js";
 import {
   getBisApprovalFlow, updateBisApprovalFlow, uploadBisApprovalSignature, getBisApprovalUsers,
-} from "../controllers/quality/BisApprovalFlow.controller.js";
-import { getDispatchHoldDetails } from "../controllers/quality/holdCabinetDetails.controller.js";
-import { getCPTReport } from "../controllers/quality/cptReport.controller.js";
+} from "../controllers/quality/bis/bis-approval-flow.controller.js";
+import { getDispatchHoldDetails } from "../controllers/quality/hold-cabinet-details.controller.js";
+import { getCPTReport } from "../controllers/quality/cpt-report.controller.js";
 import {
   getReworkReport,
   getReworkReportQuick,
@@ -73,12 +73,12 @@ import {
 } from "../controllers/quality/rework.controller.js";
 import {
   deleteBeeModel, getBeeModels, saveBeeModels, saveBeeRating,
-} from "../controllers/quality/beeCalculation.controller.js";
+} from "../controllers/quality/bis/bee-calculation.controller.js";
 import {
   getFpaByModel, getFpaDefectDetails, getFpaHistory,
-} from "../controllers/quality/fpaHistory.controller.js";
-import { getBrazingReport } from "../controllers/quality/brazingReport.controller.js";
-import { getVacuumReport, getVacuumTestTrend } from "../controllers/quality/vacuumReport.controller.js";
+} from "../controllers/quality/fpa/fpa-history.controller.js";
+import { getBrazingReport } from "../controllers/quality/brazing-report.controller.js";
+import { getVacuumReport, getVacuumTestTrend } from "../controllers/quality/vacuum-loop-report.controller.js";
 
 const router = express.Router();
 

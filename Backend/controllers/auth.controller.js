@@ -3,16 +3,16 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { dbConfig1, dbConfig4 } from "../config/db.config.js";
-import { tryCatch } from "../utils/tryCatch.js";
-import { AppError } from "../utils/AppError.js";
-import { getClientIp } from "../utils/clientInfo.js";
-import { generateUserCode } from "../utils/userCode.js";
+import { tryCatch } from "../utils/try-catch.js";
+import { AppError } from "../utils/app-error.js";
+import { getClientIp } from "../utils/client-info.js";
+import { generateUserCode } from "../utils/user-code.js";
 import {
   createSession,
   attachHostToSession,
   revokeSessions,
   logAuthEventWithHost,
-} from "../utils/sessionStore.js";
+} from "../utils/session-store.js";
 
 const BCRYPT_SALT_ROUNDS = 10;
 

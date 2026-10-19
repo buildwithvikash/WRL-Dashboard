@@ -4,16 +4,16 @@ import {
   productionReportExportData,
   fetchFGData,
   fetchQuickFiltersData,
-} from "../controllers/production/ProductionReport.controller.js";
+} from "../controllers/production/report.controller.js";
 import {
   captureWIP,
   getLatestWIPCaptures,
-} from "../controllers/production/wipcapture.controller.js";
+} from "../controllers/production/wip-capture.controller.js";
 import {
   getHourlyCategoryCount,
   getHourlyModelCount,
   getHourlySummary,
-} from "../controllers/production/hourlyReport.controller.js";
+} from "../controllers/production/hourly-report.controller.js";
 import {
   getFinalLoadingHPFrz,
   getFinalLoadingHPChoc,
@@ -35,7 +35,7 @@ import {
   getFinalLoadingHPVISI,
   getFinalHPVISI,
   getPostHPVISI,
-} from "../controllers/production/lineHourlyReport.controller.js";
+} from "../controllers/production/line-hourly-report.controller.js";
 
 import {
   getFinalLoadingModelBreakdown,
@@ -55,7 +55,7 @@ import {
   getPostHPSUSModelBreakdown,
   getFoamingHpFomAModelBreakdown,
   getFoamingHpFomBModelBreakdown,
-} from "../controllers/production/modelBreakdown.controller.js";
+} from "../controllers/production/model-breakdown.controller.js";
 
 import {
   getCurrentStageStatus,
@@ -68,17 +68,17 @@ import {
   getSerialNumbers,
   getHoldDetails,
   getUnitSummary,
-} from "../controllers/production/consolidatedReport.controller.js";
+} from "../controllers/production/consolidated-report.controller.js";
 import {
   nfcReportExportData,
   getNfcReoprts,
   getQuickFiltersNfcReports,
-} from "../controllers/production/nfcReport.controller.js";
+} from "../controllers/production/nfc-report.controller.js";
 import {
   totalProductionExportData,
   getBarcodeDetails,
   getQuickFiltersBarcodeDetails,
-} from "../controllers/production/totalProduction.controller.js";
+} from "../controllers/production/total-production.controller.js";
 import {
   getStopLossDetail,
   getStopLossLocations,
@@ -88,11 +88,11 @@ import {
   getStopLossToday,
   getStopLossYesterday,
   getStopLossMTD,
-} from "../controllers/production/stopLoss.controller.js";
+} from "../controllers/production/stop-loss.controller.js";
 import {
   componentTraceabilityExportData,
   generateReport,
-} from "../controllers/production/componentTraceabilityReport.controller.js";
+} from "../controllers/production/component-traceability-report.controller.js";
 import {
   getFoamingBarcodeSummary,
   FoamingBarcodeSummaryExportData,

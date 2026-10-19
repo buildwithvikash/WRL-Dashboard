@@ -10,7 +10,7 @@ import {
 } from "../controllers/permission.controller.js";
 
 import { authenticate } from "../middlewares/auth.js";
-import { requireSuperAdmin } from "../middlewares/roleGuard.js";
+import { requireSuperAdmin } from "../middlewares/role-guard.js";
 
 const router = express.Router();
 

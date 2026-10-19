@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { checkSession } from "../utils/sessionStore.js";
+import { checkSession } from "../utils/session-store.js";
 
 export const authenticate = async (req, res, next) => {
   const token = req.cookies.token;

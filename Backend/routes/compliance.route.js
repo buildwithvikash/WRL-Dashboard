@@ -9,12 +9,12 @@ import {
   uploadCertificate,
   uploadCalibrationReport,
 } from "../controllers/compliance/calibiration.controller.js";
-import { getCalibrationUsers } from "../controllers/compliance/calibrationUsers.controller.js";
+import { getCalibrationUsers } from "../controllers/compliance/calibration-users.controller.js";
 
 import {
   uploadCalibrationFile,
   handleMulterError,
-} from "../middlewares/uploadMiddleware.js";
+} from "../middlewares/upload-middleware.js";
 
 const router = express.Router();
 
