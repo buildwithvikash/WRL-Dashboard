@@ -47,15 +47,12 @@ const ProductionDisplay2 = ({
       target: d.ShiftOutputTarget,
       actual: d.ActualQty,
     },
-    { label: "Loss Units", unit: "No's", target: null, actual: d.LossUnits },
     {
       label: "UPH Target",
       unit: "No's",
       target: d.UPHTarget,
       actual: d.ActualUPH_Avg,
     },
-    { label: "Performance", unit: "%", target: null, actual: d.PerformancePct },
-    { label: "Balance Qty", unit: "No's", target: null, actual: balance },
   ];
 
   return (
