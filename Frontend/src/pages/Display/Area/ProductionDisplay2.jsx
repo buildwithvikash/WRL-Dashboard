@@ -92,7 +92,7 @@ const ProductionDisplay2 = ({
 
       <div className="flex flex-col xl:flex-row flex-1 min-h-0 px-4 py-2 gap-4 overflow-hidden">
         <div
-          className="w-full xl:w-[55%] min-h-[320px] rounded-2xl border-2 shadow-md overflow-hidden"
+          className="w-full xl:w-[55%] min-h-80 rounded-2xl border-2 shadow-md overflow-hidden"
           style={{
             borderColor: `${ACCENT}20`,
             background: `linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)`,

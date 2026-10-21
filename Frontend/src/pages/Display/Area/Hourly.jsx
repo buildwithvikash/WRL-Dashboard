@@ -312,7 +312,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
                   {hourStats.map((h, i) => (
                     <th
                       key={i}
-                      className="px-2 py-1.5 text-white font-bold border border-white/20 text-center min-w-[52px]"
+                      className="px-2 py-1.5 text-white font-bold border border-white/20 text-center min-w-13"
                       style={{ background: ACCENT }}
                     >
                       H{h.HourNo}
@@ -350,7 +350,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           </div>
 
           {/* Chart card */}
-          <div className="flex-1 bg-white border border-slate-100 rounded-xl px-5 pt-3 pb-3 min-h-[220px] flex flex-col shadow-sm">
+          <div className="flex-1 bg-white border border-slate-100 rounded-xl px-5 pt-3 pb-3 min-h-55 flex flex-col shadow-sm">
             {/* Clean legend pills */}
             <div className="flex gap-4 justify-center mb-3 text-xs">
               <span className="flex items-center gap-2 text-slate-700 font-bold">

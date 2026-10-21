@@ -366,52 +366,6 @@ const Quality = ({ apiData = {}, progress, shift, shiftDate }) => {
               </span>
             </div>
           </div>
-
-          {/* 3-chip legend — matches doughnut */}
-          <div className="flex flex-wrap justify-center gap-2 mt-4 z-10">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-xl border border-green-200">
-              <span className="w-3.5 h-3.5 bg-green-700 rounded-md shrink-0" />
-              <div className="flex flex-col">
-                <span className="text-[9px] text-green-600 font-bold uppercase tracking-wider">
-                  OK
-                </span>
-                <span className="text-sm font-black text-green-800 font-mono leading-tight">
-                  {ok.toLocaleString()}
-                </span>
-              </div>
-              <span className="ml-1 text-[10px] font-bold text-green-500 bg-green-100 px-2 py-0.5 rounded-full">
-                {okPct}%
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-xl border border-red-200">
-              <span className="w-3.5 h-3.5 bg-red-600 rounded-md shrink-0" />
-              <div className="flex flex-col">
-                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider">
-                  Defects
-                </span>
-                <span className="text-sm font-black text-red-700 font-mono leading-tight">
-                  {defect.toLocaleString()}
-                </span>
-              </div>
-              <span className="ml-1 text-[10px] font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full">
-                {defPct}%
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-xl border border-amber-200">
-              <span className="w-3.5 h-3.5 bg-amber-500 rounded-md shrink-0" />
-              <div className="flex flex-col">
-                <span className="text-[9px] text-amber-600 font-bold uppercase tracking-wider">
-                  Rework
-                </span>
-                <span className="text-sm font-black text-amber-700 font-mono leading-tight">
-                  {rework.toLocaleString()}
-                </span>
-              </div>
-              <span className="ml-1 text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
-                {reworkPct}%
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* RIGHT — Defects table */}

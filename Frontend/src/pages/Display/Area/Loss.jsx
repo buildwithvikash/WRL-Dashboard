@@ -239,19 +239,19 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
           accentHex={ACCENT}
         />
         <TimerBar progress={progress} accentHex={ACCENT} />
-        <div className="grid grid-cols-4 gap-2.5 px-4 py-2.5 bg-slate-50">
+        <div className="grid grid-cols-5 gap-2.5 px-4 py-2.5 bg-slate-50">
           <StatCard label="Plan" value={ls.Plan} accentHex="#7c3aed" />
           <StatCard label="Achieved" value={ls.Achieved} accentHex="#15803d" />
           <StatCard label="Balance" value={ls.Remaining} accentHex="#ef4444" />
           <StatCard
-            label="Time Consumed"
-            value={
-              ls.ConsumedTimePct != null
-                ? `${Number(ls.ConsumedTimePct).toFixed(0)}%`
-                : null
-            }
-            accentHex="#f59e0b"
-            sub="of shift elapsed"
+            label="Total Stops"
+            value={totalStopCount.toLocaleString()}
+            accentHex="#b45309"
+          />
+          <StatCard
+            label="Stations"
+            value={stations.length}
+            accentHex="#2563eb"
           />
         </div>
       </div>
@@ -321,32 +321,7 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
             </div>
           </div>
 
-          {stations.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-3 mt-4 z-10">
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
-                <span className="w-3.5 h-3.5 bg-amber-600 rounded-md shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">
-                    Stops
-                  </span>
-                  <span className="text-base font-black text-amber-700 font-mono leading-tight">
-                    {totalStopCount.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-200">
-                <span className="w-3.5 h-3.5 bg-blue-600 rounded-md shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-blue-500 font-bold uppercase tracking-wider">
-                    Stations
-                  </span>
-                  <span className="text-base font-black text-blue-700 font-mono leading-tight">
-                    {stations.length}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+    
         </div>
 
         {/* RIGHT — Table (Sr / Station Name / Stop Count) */}
