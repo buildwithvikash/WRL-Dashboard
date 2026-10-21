@@ -1,6 +1,5 @@
 import { StatCard } from "../../../components/display-module/StatCard";
 import { GaugePanel } from "../../../components/display-module/GaugePanel";
-import { MetricTable } from "../../../components/display-module/MetricTable";
 import { TimerBar } from "../../../components/display-module/TimerBar";
 import { PageHeader } from "../Monitoring";
 
@@ -90,7 +89,7 @@ const ProductionDisplay1 = ({
 
       <div className="flex flex-col xl:flex-row flex-1 min-h-0 px-4 py-2 gap-4 overflow-hidden">
         <div
-          className="w-full xl:w-[55%] min-h-80 rounded-2xl border-2 shadow-md overflow-hidden"
+          className="w-full min-h-80 rounded-2xl border-2 shadow-md overflow-hidden"
           style={{
             borderColor: `${ACCENT}20`,
             background: `linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)`,
@@ -103,20 +102,6 @@ const ProductionDisplay1 = ({
             sublabel="Units / Shift"
             accentHex={ACCENT}
           />
-        </div>
-        <div className="w-full xl:w-[45%] flex flex-col min-w-0 min-h-0">
-          <div
-            className="text-white font-bold text-sm text-center py-2.5 rounded-t-xl tracking-wider uppercase flex items-center justify-center gap-2"
-            style={{
-              background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`,
-            }}
-          >
-            <span className="w-2 h-2 rounded-full bg-white/50" /> {label} —
-            Shift Metrics
-          </div>
-          <div className="flex-1 overflow-auto bg-white rounded-b-xl border border-t-0 border-slate-200 shadow-sm">
-            <MetricTable rows={rows} accentHex={ACCENT} />
-          </div>
         </div>
       </div>
 

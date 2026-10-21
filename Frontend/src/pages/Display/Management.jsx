@@ -349,11 +349,11 @@ const ConfigModal = ({ config, saving, onClose, onSave }) => {
   ).length;
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl w-full max-w-[780px] max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-1000 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl w-full max-w-195 max-h-[92vh] overflow-hidden flex flex-col shadow-2xl">
         <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-linear-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
               <Settings className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -493,7 +493,7 @@ const ConfigModal = ({ config, saving, onClose, onSave }) => {
               <button
                 onClick={() => onSave(form)}
                 disabled={saving || enabledCount === 0}
-                className={`flex items-center gap-2 px-7 py-2.5 rounded-lg font-bold text-[13px] transition-all ${saving || enabledCount === 0 ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-200 hover:shadow-md"}`}
+                className={`flex items-center gap-2 px-7 py-2.5 rounded-lg font-bold text-[13px] transition-all ${saving || enabledCount === 0 ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-linear-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-200 hover:shadow-md"}`}
               >
                 {saving ? (
                   <>
@@ -519,10 +519,10 @@ const LaunchModal = ({ config, onClose, onLaunch }) => {
   const [shiftDate, setShiftDate] = useState(todayISO);
   const [shift, setShift] = useState("A");
   return (
-    <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl w-[480px] overflow-hidden shadow-2xl">
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-5 flex items-center gap-3">
-          <div className="w-[42px] h-[42px] rounded-lg bg-white/20 flex items-center justify-center">
+    <div className="fixed inset-0 z-1000 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl w-120 overflow-hidden shadow-2xl">
+        <div className="bg-linear-to-r from-emerald-600 to-emerald-500 px-6 py-5 flex items-center gap-3">
+          <div className="w-10.5 h-10.5 rounded-lg bg-white/20 flex items-center justify-center">
             <Play className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -620,7 +620,7 @@ const LaunchModal = ({ config, onClose, onLaunch }) => {
               ["Section", config.sectionName || "Not configured"],
             ].map(([k, v]) => (
               <div key={k} className="flex gap-2.5 py-1 text-xs">
-                <span className="text-slate-400 min-w-[68px]">{k}</span>
+                <span className="text-slate-400 min-w-17">{k}</span>
                 <span className="text-slate-700 font-mono">{v}</span>
               </div>
             ))}
@@ -634,7 +634,7 @@ const LaunchModal = ({ config, onClose, onLaunch }) => {
             </button>
             <button
               onClick={() => onLaunch(config, shiftDate, shift)}
-              className="col-span-2 py-3 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm shadow-emerald-200 hover:shadow-md transition-all"
+              className="col-span-2 py-3 rounded-lg bg-linear-to-r from-emerald-600 to-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm shadow-emerald-200 hover:shadow-md transition-all"
             >
               <Play className="w-3.5 h-3.5" /> Open Dashboard
             </button>
@@ -647,8 +647,8 @@ const LaunchModal = ({ config, onClose, onLaunch }) => {
 
 /* ─── DeleteModal ─────────────────────────────────────────────────────────── */
 const DeleteModal = ({ name, saving, onClose, onConfirm }) => (
-  <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-    <div className="bg-white rounded-2xl w-[400px] p-8 shadow-2xl text-center">
+  <div className="fixed inset-0 z-1000 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+    <div className="bg-white rounded-2xl w-100 p-8 shadow-2xl text-center">
       <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
         <Trash2 className="w-7 h-7 text-red-500" />
       </div>
@@ -692,10 +692,10 @@ const ImportResultModal = ({ result, onClose, onRefresh }) => {
   const { created = 0, updated = 0, skipped = 0, rowErrors = [] } = result;
   const total = created + updated;
   return (
-    <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl w-[520px] overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-1000 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl w-130 overflow-hidden shadow-2xl">
         <div
-          className={`px-6 py-5 flex items-center gap-3 ${total > 0 ? "bg-gradient-to-r from-emerald-600 to-emerald-500" : "bg-gradient-to-r from-amber-500 to-amber-400"}`}
+          className={`px-6 py-5 flex items-center gap-3 ${total > 0 ? "bg-linear-to-r from-emerald-600 to-emerald-500" : "bg-linear-to-r from-amber-500 to-amber-400"}`}
         >
           <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
             {total > 0 ? (
@@ -990,7 +990,7 @@ const Management = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search configurations…"
-              className="bg-transparent border-none outline-none text-slate-900 text-[13px] w-[200px] placeholder:text-slate-400"
+              className="bg-transparent border-none outline-none text-slate-900 text-[13px] w-50 placeholder:text-slate-400"
             />
             {search && (
               <button
@@ -1095,7 +1095,7 @@ const Management = () => {
           </div>
 
           <div className="flex-1 overflow-auto">
-            <table className="min-w-[1500px] w-full text-xs text-left border-separate border-spacing-0">
+            <table className="min-w-375 w-full text-xs text-left border-separate border-spacing-0">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50">
                   <th className="px-4 py-2.5 font-bold text-slate-400 text-[11px] border-b border-slate-200 whitespace-nowrap">
