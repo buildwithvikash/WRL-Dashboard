@@ -54,13 +54,6 @@ const ProductionDisplay1 = ({
       target: d.UPHTarget,
       actual: d.ActualUPH_Avg,
     },
-    {
-      label: "Efficiency Till Now",
-      unit: "%",
-      target: null,
-      actual: d.EfficiencyTillNow,
-      highlight: "yellow",
-    },
     { label: "Performance", unit: "%", target: null, actual: d.PerformancePct },
     { label: "Balance Qty", unit: "No's", target: null, actual: balance },
   ];
@@ -69,7 +62,7 @@ const ProductionDisplay1 = ({
     <div className="flex flex-col w-full h-full bg-slate-50">
       <div className="sticky top-0 z-20 bg-slate-50 shrink-0">
         <PageHeader
-          title="Final Area Production Performance"
+          title="Final Area FG Packing Production Performance"
           shift={shift}
           shiftDate={shiftDate}
           accentHex={ACCENT}
@@ -85,13 +78,6 @@ const ProductionDisplay1 = ({
             label="Shift Output"
             value={d.ActualQty}
             accentHex="#1e40af"
-          />
-          <StatCard
-            label="Efficiency"
-            value={
-              d.EfficiencyTillNow != null ? `${d.EfficiencyTillNow}%` : null
-            }
-            accentHex="#f59e0b"
           />
           <StatCard
             label="Performance"
