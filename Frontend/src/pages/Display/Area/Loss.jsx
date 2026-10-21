@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { PackageOpen } from "lucide-react";
-import { PageHeader, TimerBar, StatCard } from "../Monitoring";
+import {StatCard} from "../../../components/display-module/StatCard"
+import {TimerBar} from "../../../components/display-module/TimerBar"
+import { PageHeader } from "../Monitoring";
 
 const ACCENT = "#b45309";
 

@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import ReactSpeedometer from "react-d3-speedometer";
 import {
   Loader2,
   Play,
@@ -273,247 +272,8 @@ const PageHeader = ({ title, shift, shiftDate, accentHex }) => (
   </div>
 );
 
-/* ── TimerBar ── */
-const TimerBar = ({ progress, accentHex }) => (
-  <div className="h-[3px] bg-slate-100 shrink-0">
-    <div
-      className="h-full transition-all"
-      style={{ width: `${progress}%`, background: accentHex }}
-    />
-  </div>
-);
 
-/* ── StatCard ── */
-const StatCard = ({ label, value, accentHex = "#1e40af", sub }) => (
-  <div
-    className="relative bg-white rounded-xl p-4 shadow-sm border border-slate-100 overflow-hidden"
-    style={{ borderLeft: `4px solid ${accentHex}` }}
-  >
-    <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">
-      {label}
-    </p>
-    <p className="text-3xl font-black font-mono" style={{ color: accentHex }}>
-      {typeof value === "number" ? value.toLocaleString() : (value ?? "—")}
-    </p>
-    {sub && <p className="text-[10px] text-slate-400 mt-1">{sub}</p>}
-    <div
-      className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full opacity-10"
-      style={{ background: accentHex }}
-    />
-  </div>
-);
 
-/* ── GaugePanel ── */
-const GaugePanel = memo(
-  ({ value, maxValue = 1000, label, sublabel, accentHex }) => {
-    const clamped = Math.min(Math.max(Number(value) || 0, 0), maxValue);
-    const containerRef = useRef(null);
-    const [dims, setDims] = useState({ width: 400, height: 220 });
-
-    useEffect(() => {
-      const el = containerRef.current;
-      if (!el) return;
-      const measure = () => {
-        // ✅ FIX: clientWidth/clientHeight are NOT affected by the CSS
-        // transform scale, unlike getBoundingClientRect().
-        const width = el.clientWidth;
-        const height = el.clientHeight;
-        if (width > 0 && height > 0) {
-          const maxW = Math.floor(width - 16);
-          const maxH = Math.floor(height - 100);
-          const finalW = Math.max(180, Math.min(maxW, maxH * 1.8));
-          const finalH = Math.floor(finalW / 2);
-          if (finalW > 100 && finalH > 50)
-            setDims({ width: finalW, height: finalH });
-        }
-      };
-      const ro = new ResizeObserver(measure);
-      ro.observe(el);
-      measure();
-      return () => ro.disconnect();
-    }, []);
-
-    const pct = maxValue > 0 ? (clamped / maxValue) * 100 : 0;
-    const statusColor =
-      pct >= 80 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
-    const statusLabel =
-      pct >= 80 ? "On Track" : pct >= 50 ? "Warning" : "Critical";
-
-    return (
-      <div
-        ref={containerRef}
-        className="flex flex-col items-center justify-center w-full h-full relative"
-      >
-        <div
-          className="absolute inset-0 opacity-[0.04] rounded-2xl"
-          style={{
-            background: `radial-gradient(circle at 50% 60%, ${accentHex}, transparent 70%)`,
-          }}
-        />
-        {(label || sublabel) && (
-          <div className="text-center mb-2 z-10">
-            {label && (
-              <p
-                className="text-lg font-extrabold uppercase tracking-[0.2em] font-mono"
-                style={{ color: accentHex }}
-              >
-                {label}
-              </p>
-            )}
-            {sublabel && (
-              <p className="text-xs text-slate-400 mt-0.5">{sublabel}</p>
-            )}
-          </div>
-        )}
-        <div className="z-10">
-          <ReactSpeedometer
-            value={clamped}
-            minValue={0}
-            maxValue={maxValue}
-            width={dims.width}
-            height={dims.height}
-            segments={10}
-            segmentColors={[
-              "#dc2626",
-              "#ea580c",
-              "#f97316",
-              "#fb923c",
-              "#f59e0b",
-              "#eab308",
-              "#bef264",
-              "#86efac",
-              "#4ade80",
-              "#16a34a",
-            ]}
-            needleColor={accentHex}
-            needleTransitionDuration={2000}
-            needleTransition="easeQuadInOut"
-            currentValueText=""
-            textColor="#1e293b"
-            valueTextFontSize="0px"
-            labelFontSize="12px"
-            ringWidth={Math.max(18, dims.width * 0.06)}
-            paddingVertical={4}
-            forceRender={false}
-          />
-        </div>
-        <div className="z-10 flex flex-col items-center -mt-2">
-          <div
-            className="px-6 xl:px-10 py-3 rounded-2xl text-white font-black text-2xl md:text-3xl xl:text-4xl font-mono tracking-[0.15em] shadow-lg"
-            style={{
-              background: `linear-gradient(135deg, ${accentHex}, ${accentHex}dd)`,
-              boxShadow: `0 8px 30px ${accentHex}40`,
-            }}
-          >
-            {Number(clamped)}
-          </div>
-          <div
-            className="mt-3 flex items-center gap-2 px-4 py-1.5 rounded-full border-[1.5px]"
-            style={{
-              borderColor: `${statusColor}44`,
-              background: `${statusColor}10`,
-            }}
-          >
-            <span
-              className="w-2.5 h-2.5 rounded-full animate-pulse"
-              style={{ background: statusColor }}
-            />
-            <span
-              className="text-xs font-bold uppercase tracking-wider"
-              style={{ color: statusColor }}
-            >
-              {statusLabel}
-            </span>
-            <span className="text-xs font-mono text-slate-400">
-              {pct.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
-  (prev, next) =>
-    prev.value === next.value &&
-    prev.maxValue === next.maxValue &&
-    prev.label === next.label &&
-    prev.sublabel === next.sublabel &&
-    prev.accentHex === next.accentHex,
-);
-GaugePanel.displayName = "GaugePanel";
-
-/* ── MetricTable ── */
-const MetricTable = ({ rows, accentHex }) => (
-  <table className="w-full border-separate border-spacing-0 text-xs">
-    <thead>
-      <tr>
-        {[
-          ["45%", "Metric", "left"],
-          ["10%", "Unit", "center"],
-          ["22%", "Target", "center"],
-          ["23%", "Actual", "center"],
-        ].map(([w, lbl, align]) => (
-          <th
-            key={lbl}
-            className="px-2.5 py-2 text-white font-bold border border-white/20"
-            style={{
-              background: accentHex,
-              textAlign: align,
-              width: w,
-              fontSize: 11,
-            }}
-          >
-            {lbl}
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {rows.map((r, i) => {
-        const actualColor =
-          r.highlight === "yellow"
-            ? "#f59e0b"
-            : r.green
-              ? "#15803d"
-              : "#0f172a";
-        const mergeColumns = r.target == null;
-        return (
-          <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}>
-            <td className="px-2.5 py-1.5 border border-slate-100 text-slate-700 font-semibold">
-              {r.label}
-            </td>
-            <td className="px-2.5 py-1.5 border border-slate-100 text-slate-400 text-center text-[11px]">
-              {r.unit}
-            </td>
-            {mergeColumns ? (
-              <td
-                colSpan={2}
-                className="px-2.5 py-1.5 border border-slate-100 font-extrabold text-center"
-                style={{ color: actualColor }}
-              >
-                {r.actual ?? "—"}
-              </td>
-            ) : (
-              <>
-                <td
-                  className="px-2.5 py-1.5 border border-slate-100 font-bold text-center"
-                  style={{ color: accentHex }}
-                >
-                  {r.target ?? "—"}
-                </td>
-                <td
-                  className="px-2.5 py-1.5 border border-slate-100 font-extrabold text-center"
-                  style={{ color: actualColor }}
-                >
-                  {r.actual ?? "—"}
-                </td>
-              </>
-            )}
-          </tr>
-        );
-      })}
-    </tbody>
-  </table>
-);
 
 /* ── NavDots ── */
 const NavDots = ({ currentPage, activeMeta, onGoTo, onPrev, onNext }) => (
@@ -914,7 +674,7 @@ const Monitoring = () => {
   /* ── Guards ────────────────────────────────────────────────── */
   if (configLoading) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white gap-3.5">
+      <div className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-white gap-3.5">
         <Spinner cls="w-8 h-8 text-indigo-500" />
         <p className="text-sm text-slate-400">
           Loading dashboard configuration…
@@ -958,7 +718,7 @@ const Monitoring = () => {
   /* ── Render ────────────────────────────────────────────────── */
   return (
     // ✅ Outer wrapper = real screen. Inner canvas = 1920px design scaled to fit.
-    <div className="fixed inset-0 z-[9999] bg-slate-50 overflow-hidden">
+    <div className="fixed inset-0 z-9999 bg-slate-50 overflow-hidden">
       <div
         className="flex flex-col bg-slate-50 overflow-hidden font-sans"
         style={{
@@ -1095,10 +855,6 @@ const Monitoring = () => {
 
 export {
   PageHeader,
-  TimerBar,
-  StatCard,
-  GaugePanel,
-  MetricTable,
   DonutCanvas,
   Spinner,
 };

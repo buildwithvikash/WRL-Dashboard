@@ -15,7 +15,9 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { Chart } from "react-chartjs-2";
-import { PageHeader, TimerBar, StatCard } from "../Monitoring";
+import {StatCard} from "../../../components/display-module/StatCard"
+import {TimerBar} from "../../../components/display-module/TimerBar"
+import { PageHeader } from "../Monitoring";
 
 ChartJS.register(
   CategoryScale,

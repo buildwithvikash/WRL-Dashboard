@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
-import { PageHeader, TimerBar, StatCard } from "../Monitoring";
+import { useState } from "react";
+import { StatCard } from "../../../components/display-module/StatCard";
+import { TimerBar } from "../../../components/display-module/TimerBar";
+import { PageHeader } from "../Monitoring";
 
 const ACCENT = "#15803d";
 

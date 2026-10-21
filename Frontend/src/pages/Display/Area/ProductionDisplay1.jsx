@@ -1,10 +1,8 @@
-import {
-  PageHeader,
-  TimerBar,
-  GaugePanel,
-  MetricTable,
-  StatCard,
-} from "../Monitoring";
+import { StatCard } from "../../../components/display-module/StatCard";
+import { GaugePanel } from "../../../components/display-module/GaugePanel";
+import { MetricTable } from "../../../components/display-module/MetricTable";
+import { TimerBar } from "../../../components/display-module/TimerBar";
+import { PageHeader } from "../Monitoring";
 
 const ACCENT = "#1e40af";
 
@@ -65,7 +63,7 @@ const ProductionDisplay1 = ({
           accentHex={ACCENT}
         />
         <TimerBar progress={progress} accentHex={ACCENT} />
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 px-4 py-2.5 bg-slate-50">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 px-4 py-2.5 bg-slate-50">
           <StatCard
             label="Shift Target"
             value={d.ShiftOutputTarget}
