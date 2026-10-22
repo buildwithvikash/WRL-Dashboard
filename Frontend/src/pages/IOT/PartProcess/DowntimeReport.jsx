@@ -863,7 +863,7 @@ const PartProcessDowntimeReport = () => {
             )}
 
             {/* ── TABS ── */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
               {/* Tab strip */}
               <div className="flex border-b border-slate-200 bg-slate-50">
                 {tabs.map((t)=>(
