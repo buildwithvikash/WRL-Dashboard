@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,9 +15,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { Chart } from "react-chartjs-2";
-import {StatCard} from "../../../components/display-module/StatCard"
-import {TimerBar} from "../../../components/display-module/TimerBar"
-import { PageHeader } from "../Monitoring";
+import { TimerBar } from "../../../components/display-module/TimerBar";
 
 ChartJS.register(
   CategoryScale,
@@ -34,10 +32,114 @@ ChartJS.register(
   Filler,
 );
 
+/* ─────────────────────────────────────────────────────────────────────────
+   RESPONSIVE SIZING
+   HTML sizes are written as s(<px at 1920×1080>) and scale with this page's
+   own container, so the layout looks the same on a 55" TV or a laptop.
+
+   Chart.js draws on a canvas and can't use CSS units, so useScale() measures
+   the same container and returns k (1 = 1920×1080). Chart fonts, line widths
+   and offsets are multiplied by k.
+
+   To make anything bigger or smaller, just change its number.
+───────────────────────────────────────────────────────────────────────── */
+const s = (px) => `calc(var(--u) * ${(px / 19.2).toFixed(4)})`;
+
+const useScale = (ref) => {
+  const [k, setK] = useState(1);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0) {
+        setK(Math.round(Math.min(w / 1920, h / 1080) * 100) / 100);
+      }
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, [ref]);
+  return k;
+};
+
 const ACCENT = "#7c3aed";
+
+const pad = (n) => String(n).padStart(2, "0");
+
+const num = (v) => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const fmt = (v, digits = 0) => {
+  const n = num(v);
+  return n === null
+    ? "—"
+    : n.toLocaleString(undefined, { maximumFractionDigits: digits });
+};
+
+/* ── Live clock (header) ── */
+const Clock = () => {
+  const [t, setT] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setT(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span
+      className="font-black font-mono tabular-nums leading-none"
+      style={{ fontSize: s(52) }}
+    >
+      {pad(t.getHours())}:{pad(t.getMinutes())}:{pad(t.getSeconds())}
+    </span>
+  );
+};
+
+/* ── Stat tile ── */
+const Tile = ({ label, value, sub, color }) => (
+  <div
+    className="min-w-0 bg-white border border-slate-200 shadow-sm flex flex-col justify-between"
+    style={{
+      borderLeft: `${s(12)} solid ${color}`,
+      borderRadius: s(20),
+      padding: `${s(16)} ${s(26)}`,
+      gap: s(6),
+    }}
+  >
+    <p
+      className="font-bold text-slate-500 leading-tight whitespace-nowrap"
+      style={{ fontSize: s(32) }}
+    >
+      {label}
+    </p>
+    <p
+      className="font-black tabular-nums leading-none whitespace-nowrap"
+      style={{ color, fontSize: s(100) }}
+    >
+      {value}
+    </p>
+    {sub !== undefined && (
+      <p
+        className="font-semibold text-slate-400 leading-tight whitespace-nowrap"
+        style={{ fontSize: s(26) }}
+      >
+        {sub}
+      </p>
+    )}
+  </div>
+);
+
+/* ═════════════════════════════════════════════════════════════════════════ */
 
 const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
   const { hours = [], summary = {} } = apiData;
+
+  const rootRef = useRef(null);
+  const k = useScale(rootRef);
 
   const hourStats = useMemo(
     () =>
@@ -61,16 +163,16 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           data: hourStats.map((h) => h.HourLoss),
           borderColor: "#ef4444",
           backgroundColor: "rgba(239,68,68,0.1)",
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 9,
+          borderWidth: Math.max(2, Math.round(5 * k)),
+          pointRadius: Math.max(4, Math.round(10 * k)),
+          pointHoverRadius: Math.max(5, Math.round(13 * k)),
           pointBackgroundColor: "#ef4444",
           pointBorderColor: "#fff",
-          pointBorderWidth: 2.5,
+          pointBorderWidth: Math.max(2, Math.round(4 * k)),
           tension: 0.4,
           fill: false,
           yAxisID: "y2",
-          order: 0, // drawn last → on top
+          order: 0,
         },
         // ── Target dashed line ──
         {
@@ -79,9 +181,9 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           data: hourStats.map((h) => h._target),
           borderColor: "#1e40af",
           backgroundColor: "transparent",
-          borderWidth: 2.5,
-          borderDash: [8, 5],
-          pointRadius: 0, // no dots — clean line
+          borderWidth: Math.max(2, Math.round(4 * k)),
+          borderDash: [Math.round(12 * k), Math.round(8 * k)],
+          pointRadius: 0,
           pointHoverRadius: 5,
           pointBackgroundColor: "#1e40af",
           tension: 0,
@@ -89,41 +191,52 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           yAxisID: "y",
           order: 1,
         },
-        // ── Actual bars (the hero) ──
+        // ── Actual bars ──
         {
           type: "bar",
           label: "Actual",
           data: hourStats.map((h) => h._actual),
           backgroundColor: "rgba(245,158,11,0.85)",
           borderColor: "#d97706",
-          borderWidth: 1.5,
-          borderRadius: 8,
+          borderWidth: Math.max(1, Math.round(2 * k)),
+          borderRadius: Math.round(12 * k),
           barPercentage: 0.7,
           categoryPercentage: 0.85,
           yAxisID: "y",
-          order: 2, // drawn first → at bottom
+          order: 2,
         },
       ],
     }),
-    [hourStats],
+    [hourStats, k],
   );
 
-  const chartOptions = useMemo(
-    () => ({
+  const chartOptions = useMemo(() => {
+    const f = (px) => Math.max(10, Math.round(px * k));
+    const isBadge = (ctx) =>
+      ctx.dataset.label === "Loss" || ctx.dataset.label === "Actual";
+
+    return {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      layout: { padding: { top: 40, right: 12, bottom: 18, left: 4 } },
+      layout: {
+        padding: {
+          top: Math.round(70 * k),
+          right: Math.round(16 * k),
+          bottom: Math.round(20 * k),
+          left: Math.round(6 * k),
+        },
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: "#1e293b",
           titleColor: "#f8fafc",
           bodyColor: "#e2e8f0",
-          padding: 14,
+          padding: Math.round(14 * k),
           cornerRadius: 10,
-          titleFont: { size: 14, weight: "bold" },
-          bodyFont: { size: 13 },
+          titleFont: { size: f(22), weight: "bold" },
+          bodyFont: { size: f(20) },
           boxPadding: 6,
           callbacks: {
             title: (items) => `Hour ${items[0].label}`,
@@ -132,49 +245,39 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
         datalabels: {
           display: (ctx) => {
             const v = ctx.dataset.data[ctx.dataIndex];
-            // Hide Target labels (line is enough), only show Actual + Loss values
             if (ctx.dataset.label === "Target") return false;
             return v != null && v !== 0;
           },
-          // 👇 anchor/align now depend on dataset
-          anchor: (ctx) => {
-            if (ctx.dataset.label === "Loss") return "center"; // sit on the dot
-            return "end"; // top of bar
-          },
-          align: (ctx) => {
-            if (ctx.dataset.label === "Loss") return "bottom"; // 🔴 red value goes DOWN
-            return "top"; // 🟡 yellow value goes UP
-          },
+          anchor: (ctx) => (ctx.dataset.label === "Loss" ? "center" : "end"),
+          align: (ctx) => (ctx.dataset.label === "Loss" ? "bottom" : "top"),
           offset: (ctx) => {
-            if (ctx.dataset.label === "Loss") return 10; // push red label well below the dot
-            if (ctx.dataset.label === "Actual") return 18; // push yellow label well above blue line
+            if (ctx.dataset.label === "Loss") return Math.round(16 * k);
+            if (ctx.dataset.label === "Actual") return Math.round(26 * k);
             return 4;
           },
-          color: (ctx) => {
-            if (ctx.dataset.label === "Actual") return "#92400e";
-            return "#dc2626";
-          },
-          backgroundColor: (ctx) => {
-            if (ctx.dataset.label === "Loss") return "rgba(255,255,255,0.95)";
-            if (ctx.dataset.label === "Actual") return "rgba(255,255,255,0.9)"; // small pill so it floats over the blue line cleanly
-            return null;
-          },
+          color: (ctx) =>
+            ctx.dataset.label === "Actual" ? "#92400e" : "#dc2626",
+          backgroundColor: (ctx) =>
+            isBadge(ctx) ? "rgba(255,255,255,0.95)" : null,
           borderColor: (ctx) => {
             if (ctx.dataset.label === "Loss") return "#fecaca";
             if (ctx.dataset.label === "Actual") return "#fde68a";
             return null;
           },
           borderWidth: (ctx) =>
-            ctx.dataset.label === "Loss" || ctx.dataset.label === "Actual"
-              ? 1.5
-              : 0,
-          borderRadius: 6,
+            isBadge(ctx) ? Math.max(1, Math.round(2 * k)) : 0,
+          borderRadius: Math.round(10 * k),
           padding: (ctx) =>
-            ctx.dataset.label === "Loss" || ctx.dataset.label === "Actual"
-              ? { top: 3, bottom: 3, left: 6, right: 6 }
+            isBadge(ctx)
+              ? {
+                  top: Math.round(5 * k),
+                  bottom: Math.round(5 * k),
+                  left: Math.round(10 * k),
+                  right: Math.round(10 * k),
+                }
               : 2,
           font: (ctx) => ({
-            size: ctx.dataset.label === "Actual" ? 12 : 11,
+            size: ctx.dataset.label === "Actual" ? f(30) : f(26),
             weight: 800,
           }),
           formatter: (value) => (value != null && value !== 0 ? value : ""),
@@ -188,9 +291,9 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           border: { color: "#e2e8f0" },
           ticks: {
             color: "#475569",
-            font: { size: 13, weight: "bold" },
+            font: { size: f(30), weight: "bold" },
             maxRotation: 0,
-            padding: 4,
+            padding: Math.round(8 * k),
           },
         },
         y: {
@@ -198,9 +301,9 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           beginAtZero: true,
           border: { display: false },
           ticks: {
-            color: "#94a3b8",
-            font: { size: 11, weight: 600 },
-            padding: 6,
+            color: "#64748b",
+            font: { size: f(24), weight: 600 },
+            padding: Math.round(10 * k),
           },
           grid: { color: "#f1f5f9", lineWidth: 1 },
           grace: "25%",
@@ -208,7 +311,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
             display: true,
             text: "Units Produced",
             color: "#64748b",
-            font: { size: 11, weight: "bold" },
+            font: { size: f(24), weight: "bold" },
           },
         },
         y2: {
@@ -217,181 +320,165 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
           border: { display: false },
           ticks: {
             color: "#ef4444",
-            font: { size: 11, weight: 600 },
-            padding: 6,
+            font: { size: f(24), weight: 600 },
+            padding: Math.round(10 * k),
           },
           grid: { display: false },
           title: {
             display: true,
             text: "Loss",
             color: "#ef4444",
-            font: { size: 11, weight: "bold" },
+            font: { size: f(24), weight: "bold" },
           },
         },
       },
-    }),
-    [],
-  );
-
-  const tableRows = [
-    {
-      label: "Target",
-      vals: hourStats.map((h) => h._target),
-      color: "#1e40af",
-    },
-    {
-      label: "Actual",
-      vals: hourStats.map((h) => h._actual),
-      color: "#0f172a",
-    },
-    {
-      label: "Cumul. Loss",
-      vals: hourStats.map((h) => h.CumulativeLoss),
-      color: "#ef4444",
-    },
-    {
-      label: "Achiev. %",
-      isObj: true,
-      vals: hourStats.map((h) => {
-        const a = Number(h.AchievementPct || 0);
-        return { v: `${a.toFixed(0)}%`, c: a >= 85 ? "#15803d" : "#d97706" };
-      }),
-    },
-  ];
+    };
+  }, [k]);
 
   return (
-    <div className="flex flex-col w-full h-full bg-slate-50">
-      <div className="sticky top-0 z-20 bg-slate-50 shrink-0">
-        <PageHeader
-          title="Hourly Production Performance"
-          shift={shift}
-          shiftDate={shiftDate}
-          accentHex={ACCENT}
-        />
-        <TimerBar progress={progress} accentHex={ACCENT} />
-        <div className="grid grid-cols-4 gap-3 px-5 py-3 bg-slate-50">
-          <StatCard
+    <div
+      ref={rootRef}
+      className="w-full h-full flex-1 min-h-0 flex flex-col bg-slate-100 overflow-hidden font-sans"
+      style={{ containerType: "size", "--u": "min(1cqw, 1.7778cqh)" }}
+    >
+      {/* ── Header ── */}
+      <header
+        className="shrink-0 flex items-center justify-between text-white"
+        style={{ background: ACCENT, padding: `${s(14)} ${s(36)}` }}
+      >
+        <h1
+          className="font-black uppercase tracking-wide leading-none truncate min-w-0"
+          style={{ fontSize: s(48) }}
+        >
+          Hourly Production Performance
+        </h1>
+        <div className="flex items-center shrink-0" style={{ gap: s(30) }}>
+          <span
+            className="bg-white font-black leading-none"
+            style={{
+              color: ACCENT,
+              fontSize: s(42),
+              padding: `${s(10)} ${s(28)}`,
+              borderRadius: s(16),
+            }}
+          >
+            Shift {shift}
+          </span>
+          <div className="flex flex-col items-end" style={{ gap: s(6) }}>
+            <span
+              className="font-semibold font-mono text-white/80 leading-none"
+              style={{ fontSize: s(28) }}
+            >
+              {shiftDate}
+            </span>
+            <Clock />
+          </div>
+        </div>
+      </header>
+      <TimerBar progress={progress} accentHex={ACCENT} />
+
+      {/* ── Body ── */}
+      <div
+        className="flex-1 min-h-0 flex flex-col"
+        style={{ padding: `${s(18)} ${s(24)}`, gap: s(16) }}
+      >
+        {/* KPI row */}
+        <div className="shrink-0 grid grid-cols-4" style={{ gap: s(16) }}>
+          <Tile
             label="Shift Plan"
-            value={summary.ShiftPlan}
-            accentHex="#7c3aed"
+            value={fmt(summary.ShiftPlan)}
+            color="#7c3aed"
           />
-          <StatCard
+          <Tile
             label="Total Achieved"
-            value={summary.TotalAchieved}
-            accentHex="#15803d"
+            value={fmt(summary.TotalAchieved)}
+            color="#15803d"
           />
-          <StatCard
+          <Tile
             label="Remaining"
-            value={summary.Remaining}
-            accentHex="#ef4444"
+            value={fmt(summary.Remaining)}
+            color="#ef4444"
           />
-          <StatCard
+          <Tile
             label="Time Consumed"
             value={
               summary.ConsumedTimePct != null
                 ? `${Number(summary.ConsumedTimePct).toFixed(0)}%`
-                : null
+                : "—"
             }
-            accentHex="#f59e0b"
             sub="of shift elapsed"
+            color="#f59e0b"
           />
         </div>
-      </div>
 
-      <div className="flex flex-1 min-h-0 px-4 py-3 gap-4">
-        <div className="flex-1 flex flex-col min-w-0 gap-3">
-          {/* Hour-by-hour table */}
-          <div className="overflow-x-auto shrink-0">
-            <table className="min-w-full border-separate border-spacing-0 text-[11px]">
-              <thead>
-                <tr>
-                  <th
-                    className="px-2.5 py-1.5 text-white font-bold border border-white/20 text-left"
-                    style={{ background: ACCENT }}
-                  >
-                    Metric
-                  </th>
-                  {hourStats.map((h, i) => (
-                    <th
-                      key={i}
-                      className="px-2 py-1.5 text-white font-bold border border-white/20 text-center min-w-13"
-                      style={{ background: ACCENT }}
-                    >
-                      H{h.HourNo}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((row, ri) => (
-                  <tr
-                    key={ri}
-                    className={ri % 2 === 0 ? "bg-white" : "bg-slate-50/40"}
-                  >
-                    <td className="px-2.5 py-1 border border-slate-100 text-slate-700 font-semibold">
-                      {row.label}
-                    </td>
-                    {hourStats.map((_, ci) => {
-                      const item = row.isObj
-                        ? row.vals[ci]
-                        : { v: row.vals[ci], c: row.color };
-                      return (
-                        <td
-                          key={ci}
-                          className="px-2 py-1 border border-slate-100 text-center font-bold"
-                          style={{ color: item.c }}
-                        >
-                          {item.v}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Chart card */}
-          <div className="flex-1 bg-white border border-slate-100 rounded-xl px-5 pt-3 pb-3 min-h-55 flex flex-col shadow-sm">
-            {/* Clean legend pills */}
-            <div className="flex gap-4 justify-center mb-3 text-xs">
-              <span className="flex items-center gap-2 text-slate-700 font-bold">
+        {/* Chart card */}
+        <section
+          className="flex-1 min-h-0 min-w-0 bg-white border border-slate-200 shadow-sm flex flex-col"
+          style={{
+            borderRadius: s(24),
+            padding: `${s(16)} ${s(28)} ${s(12)}`,
+          }}
+        >
+          {/* Legend */}
+          <div
+            className="shrink-0 flex items-center justify-center font-bold text-slate-700"
+            style={{ fontSize: s(30), gap: s(48) }}
+          >
+            <span className="flex items-center" style={{ gap: s(14) }}>
+              <span
+                style={{
+                  width: s(40),
+                  height: s(26),
+                  borderRadius: s(6),
+                  background: "rgba(245,158,11,0.85)",
+                }}
+              />
+              Actual Production
+            </span>
+            <span className="flex items-center" style={{ gap: s(14) }}>
+              <span
+                style={{
+                  width: s(56),
+                  height: s(5),
+                  background:
+                    "repeating-linear-gradient(90deg, #1e40af 0 10px, transparent 10px 18px)",
+                }}
+              />
+              Target
+            </span>
+            <span className="flex items-center" style={{ gap: s(14) }}>
+              <span className="flex items-center" style={{ gap: s(2) }}>
                 <span
-                  className="w-4 h-3 rounded-sm"
-                  style={{ background: "rgba(245,158,11,0.85)" }}
+                  className="bg-red-500"
+                  style={{ width: s(18), height: s(5) }}
                 />
-                Actual Production
-              </span>
-              <span className="flex items-center gap-2 text-slate-700 font-bold">
                 <span
-                  className="w-5 h-0.5"
+                  className="rounded-full bg-red-500 border-white shadow-sm"
                   style={{
-                    background:
-                      "repeating-linear-gradient(90deg, #1e40af 0 5px, transparent 5px 9px)",
+                    width: s(22),
+                    height: s(22),
+                    borderWidth: s(3),
+                    borderStyle: "solid",
                   }}
                 />
-                Target
+                <span
+                  className="bg-red-500"
+                  style={{ width: s(18), height: s(5) }}
+                />
               </span>
-              <span className="flex items-center gap-2 text-slate-700 font-bold">
-                <span className="flex items-center gap-0.5">
-                  <span className="w-2.5 h-0.5 bg-red-500" />
-                  <span className="w-2 h-2 rounded-full bg-red-500 border border-white shadow-sm" />
-                  <span className="w-2.5 h-0.5 bg-red-500" />
-                </span>
-                Loss
-              </span>
-            </div>
-
-            <div className="flex-1 relative min-h-0">
-              <Chart
-                key={`hrly-${hourStats.length}`}
-                type="bar"
-                data={chartData}
-                options={chartOptions}
-              />
-            </div>
+              Loss
+            </span>
           </div>
-        </div>
+
+          <div className="flex-1 relative min-h-0" style={{ marginTop: s(6) }}>
+            <Chart
+              key={`hrly-${hourStats.length}`}
+              type="bar"
+              data={chartData}
+              options={chartOptions}
+            />
+          </div>
+        </section>
       </div>
     </div>
   );
