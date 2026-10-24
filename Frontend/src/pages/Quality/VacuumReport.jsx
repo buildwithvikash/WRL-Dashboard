@@ -122,7 +122,7 @@ const StatCard = ({ label, value }) => (
   </div>
 );
 
-const fmtDate = (v) => (v ? new Date(v).toLocaleString() : "—");
+const fmtDate = (v) => v?.replace("T", " ").replace("Z", "") ?? "—";
 
 /* ── Expanded panel: stats + chart + every poll reading ── */
 const TrendDetail = ({ row, readings, loading }) => {
@@ -133,19 +133,31 @@ const TrendDetail = ({ row, readings, loading }) => {
       .map((r) => r.Vacuum)
       .filter((v) => v !== null && v !== undefined && !isNaN(Number(v)))
       .map(Number);
-    if (!vals.length) return { min: "—", max: "—", avg: "—", count: 0 };
+
+    if (!vals.length) {
+      return {
+        min: "—",
+        max: "—",
+        avg: "—",
+        last: "—",
+        count: 0,
+      };
+    }
+
     const sum = vals.reduce((a, b) => a + b, 0);
+
     return {
       min: Math.min(...vals).toFixed(3),
       max: Math.max(...vals).toFixed(3),
       avg: (sum / vals.length).toFixed(3),
+      last: vals[vals.length - 1].toFixed(3),
       count: vals.length,
     };
   }, [readings]);
 
   if (loading) {
     return (
-      <div className="h-[240px] flex items-center justify-center gap-2 text-slate-400 text-sm">
+      <div className="h-60 flex items-center justify-center gap-2 text-slate-400 text-sm">
         <Spinner /> Loading readings…
       </div>
     );
@@ -153,7 +165,7 @@ const TrendDetail = ({ row, readings, loading }) => {
 
   if (readings.length === 0) {
     return (
-      <div className="h-[120px] flex items-center justify-center text-slate-400 text-sm">
+      <div className="h-30 flex items-center justify-center text-slate-400 text-sm">
         No readings for this test.
       </div>
     );
@@ -163,14 +175,15 @@ const TrendDetail = ({ row, readings, loading }) => {
     <div className="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-4">
       {/* LEFT: stats + chart */}
       <div className="flex flex-col gap-3 min-w-0">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           <StatCard label="Min (mbar)" value={stats.min} />
           <StatCard label="Max (mbar)" value={stats.max} />
           <StatCard label="Avg (mbar)" value={stats.avg} />
+          <StatCard label="Last Reading (mbar)" value={stats.last} />
           <StatCard label="Readings" value={stats.count} />
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-3 h-[240px]">
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-3 h-60">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={readings}
@@ -236,7 +249,7 @@ const TrendDetail = ({ row, readings, loading }) => {
             Every poll reading ({readings.length})
           </span>
         </div>
-        <div className="overflow-auto max-h-[290px]">
+        <div className="overflow-auto max-h-72.5">
           <table className="min-w-full text-xs text-center border-separate border-spacing-0">
             <thead className="sticky top-0 z-10 bg-white">
               <tr className="text-slate-500">
