@@ -2974,27 +2974,6 @@ const PartProcessDashboard = () => {
               </div>
             </div>
 
-            {curModel && (
-              <>
-                <div className="w-px h-8 bg-slate-200 mx-1" />
-                <div className="text-xs">
-                  {curMat ? (
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-800">
-                        {curMat.partName}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {curModel} · {curMat.drawingNumber}{" "}
-                        {curMat.drawingRevision}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="font-mono text-slate-600">{curModel}</span>
-                  )}
-                </div>
-              </>
-            )}
-
             <div className="ml-auto flex items-center gap-2 flex-wrap">
               {/* ── Quick range buttons ── */}
               <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -3588,7 +3567,7 @@ const PartProcessDashboard = () => {
                 <div className="flex flex-col divide-y divide-slate-100">
                   {[
                     {
-                      label: "Model Target",
+                      label: "Unique Models Produced",
                       value:
                         modelLabels.length ||
                         (shiftRecords.length > 0 ? 1 : "-"),
