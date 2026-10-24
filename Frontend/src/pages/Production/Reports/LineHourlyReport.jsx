@@ -640,19 +640,25 @@ const LineHourlyReport = () => {
           title: "Frz. Post Foaming Group A",
           data: d.postGrpA,
           modelData: d.postGrpAModel,
-          datasets: [{ key: "COUNT", label: "Frz. Post Foaming Group A", color: sky }],
+          datasets: [
+            { key: "COUNT", label: "Frz. Post Foaming Group A", color: sky },
+          ],
         },
         {
           title: "Frz. Post Foaming Group B",
           data: d.postGrpB,
           modelData: d.postGrpBModel,
-          datasets: [{ key: "COUNT", label: "Frz. Post Foaming Group B", color: slate }],
+          datasets: [
+            { key: "COUNT", label: "Frz. Post Foaming Group B", color: slate },
+          ],
         },
         {
           title: "CHOC Post Foaming",
           data: d.postChoc,
           modelData: d.postChocModel,
-          datasets: [{ key: "COUNT", label: "CHOC Post Foaming", color: amber }],
+          datasets: [
+            { key: "COUNT", label: "CHOC Post Foaming", color: amber },
+          ],
         },
         {
           title: "FOW Post Foaming",
@@ -749,7 +755,7 @@ const LineHourlyReport = () => {
             Line Hourly Report
           </h1>
           <p className="text-[11px] text-slate-400">
-            Production monitoring · Real-time output analysis
+            Hourly production breakdown by line
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -401,11 +401,11 @@ const TotalProduction = () => {
             Total Production
           </h1>
           <p className="text-[11px] text-slate-400">
-            Barcode-level production details by department
+            View production details by area across all plant lines
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
+          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-22.5">
             <span className="text-xl font-bold font-mono text-blue-700">
               {totalCount.toLocaleString()}
             </span>
@@ -415,7 +415,7 @@ const TotalProduction = () => {
           </div>
           {summaryData.length > 0 && (
             <>
-              <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 min-w-[90px]">
+              <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 min-w-22.5">
                 <span className="text-xl font-bold font-mono text-emerald-700">
                   {Object.keys(modelNameCount).length}
                 </span>
@@ -423,7 +423,7 @@ const TotalProduction = () => {
                   Model Types
                 </span>
               </div>
-              <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-violet-50 border border-violet-100 min-w-[90px]">
+              <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-violet-50 border border-violet-100 min-w-22.5">
                 <span className="text-xl font-bold font-mono text-violet-700">
                   {Object.keys(categoryCounts).length}
                 </span>
@@ -447,7 +447,7 @@ const TotalProduction = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-3 items-end">
-            <div className="min-w-[170px] flex-1">
+            <div className="min-w-42.5 flex-1">
               <SelectField
                 label="Model Variant"
                 options={variants}
@@ -459,7 +459,7 @@ const TotalProduction = () => {
                 }
               />
             </div>
-            <div className="min-w-[170px] flex-1">
+            <div className="min-w-42.5 flex-1">
               <SelectField
                 label="Department"
                 options={DEPARTMENT_OPTIONS}
@@ -473,7 +473,7 @@ const TotalProduction = () => {
                 }
               />
             </div>
-            <div className="min-w-[185px] flex-1">
+            <div className="min-w-46.25 flex-1">
               <DateTimePicker
                 label="Start Time"
                 name="startTime"
@@ -481,7 +481,7 @@ const TotalProduction = () => {
                 onChange={(e) => setStartTime(e.target.value)}
               />
             </div>
-            <div className="min-w-[185px] flex-1">
+            <div className="min-w-46.25 flex-1">
               <DateTimePicker
                 label="End Time"
                 name="endTime"
@@ -593,7 +593,7 @@ const TotalProduction = () => {
                   <span className="text-sm">Loading…</span>
                 </div>
               ) : (
-                <table className="min-w-[700px] w-full text-xs text-left border-separate border-spacing-0">
+                <table className="min-w-175 w-full text-xs text-left border-separate border-spacing-0">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-100">
                       {COLUMNS.map((col) => (

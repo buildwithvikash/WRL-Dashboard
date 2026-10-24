@@ -433,10 +433,11 @@ const HourlyReport = () => {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
-            Hourly Production Report
+            Hourly Report
           </h1>
           <p className="text-[11px] text-slate-400">
-            Real-time manufacturing output analysis
+            Monitor hourly production output across every line and stage in the
+            plant
           </p>
         </div>
         <div className="flex items-center gap-2">

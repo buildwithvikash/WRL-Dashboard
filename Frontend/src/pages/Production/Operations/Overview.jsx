@@ -414,15 +414,15 @@ const Overview = () => {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
-            FG Production Overview
+            Overview
           </h1>
           <p className="text-[11px] text-slate-400">
-            Monitor finished goods production, assembly activity, and output in
-            real time
+            View production data across all lines and stages throughout the
+            plant
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
+          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-22.5">
             <span className="text-xl font-bold font-mono text-blue-700">
               {totalCount ?? 0}
             </span>
@@ -431,7 +431,7 @@ const Overview = () => {
             </span>
           </div>
           {aggregated.length > 0 && (
-            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 min-w-[90px]">
+            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 min-w-22.5">
               <span className="text-xl font-bold font-mono text-emerald-700">
                 {aggregated.length}
               </span>
@@ -475,7 +475,7 @@ const Overview = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 items-end">
-            <div className="min-w-[190px] flex-1">
+            <div className="min-w-47.5 flex-1">
               <SelectField
                 label="Model Variant"
                 options={variants}
@@ -489,7 +489,7 @@ const Overview = () => {
             </div>
 
             {isDetailReport ? (
-              <div className="min-w-[190px] flex-1">
+              <div className="min-w-47.5 flex-1">
                 <SelectField
                   label="Stage Name"
                   options={stages}
@@ -503,7 +503,7 @@ const Overview = () => {
               </div>
             ) : (
               <>
-                <div className="min-w-[170px] flex-1">
+                <div className="min-w-42.5 flex-1">
                   <SelectField
                     label="Line"
                     value={simpleLine}
@@ -514,7 +514,7 @@ const Overview = () => {
                     onChange={(e) => setSimpleLine(e.target.value)}
                   />
                 </div>
-                <div className="min-w-[170px] flex-1">
+                <div className="min-w-42.5 flex-1">
                   <SelectField
                     label="Stage"
                     value={simpleStage}
@@ -534,7 +534,7 @@ const Overview = () => {
               </>
             )}
 
-            <div className="min-w-[185px] flex-1">
+            <div className="min-w-46.25 flex-1">
               <DateTimePicker
                 label="Start Time"
                 name="startTime"
@@ -542,7 +542,7 @@ const Overview = () => {
                 onChange={(e) => setStartTime(e.target.value)}
               />
             </div>
-            <div className="min-w-[185px] flex-1">
+            <div className="min-w-46.25 flex-1">
               <DateTimePicker
                 label="End Time"
                 name="endTime"
@@ -669,7 +669,7 @@ const Overview = () => {
                   <span className="text-sm">Loading…</span>
                 </div>
               ) : (
-                <table className="min-w-[1200px] w-full text-xs text-left border-separate border-spacing-0">
+                <table className="min-w-300 w-full text-xs text-left border-separate border-spacing-0">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-100">
                       {[
