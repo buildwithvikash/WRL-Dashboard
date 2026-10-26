@@ -145,7 +145,8 @@ function filterWorkersByDept(workers, deptSubstrings) {
 const DAY_SHIFT_START = 7;
 const DAY_SHIFT_END = 15;
 
-const ALL_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+// Production day 08:00 → next day 08:00 (shift 1: 08–20, shift 2: 20–08)
+const ALL_HOURS = Array.from({ length: 24 }, (_, i) => (i + 8) % 24);
 
 const DAY_COLORS = [
   "#4f46e5",
