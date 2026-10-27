@@ -615,20 +615,6 @@ const ScrapDetails = () => {
               value={kpis.materialCount}
               colorCls="bg-emerald-50 text-emerald-500"
             />
-
-            <KpiCard
-              icon={CalendarDays}
-              label="Scrap Days"
-              value={kpis.scrapDays}
-              colorCls="bg-amber-50 text-amber-500"
-            />
-
-            <KpiCard
-              icon={TrendingUp}
-              label="Average Cabinets / Day"
-              value={Number(kpis.averageScrapPerDay || 0).toFixed(1)}
-              colorCls="bg-rose-50 text-rose-500"
-            />
           </div>
         )}
 
@@ -641,33 +627,10 @@ const ScrapDetails = () => {
                 Cabinet Records
               </span>
 
-              {queried && (
-                <StatusPill color="blue">
-                  {formatNumber(totalCabinets)} cabinets
-                </StatusPill>
-              )}
-
               {search && (
                 <StatusPill color="amber">
                   {formatNumber(filteredRows.length)} matched
                 </StatusPill>
-              )}
-
-              {displayRows.length > 0 && (
-                <>
-                  <button
-                    onClick={expandAll}
-                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-md hover:bg-blue-50"
-                  >
-                    Expand all
-                  </button>
-                  <button
-                    onClick={collapseAll}
-                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded-md hover:bg-slate-100"
-                  >
-                    Collapse all
-                  </button>
-                </>
               )}
             </div>
 
@@ -696,7 +659,7 @@ const ScrapDetails = () => {
           {/* Table content */}
           <div className="flex-1 overflow-auto min-h-0">
             {loading ? (
-              <div className="flex items-center justify-center h-full min-h-[220px] gap-2 text-blue-600">
+              <div className="flex items-center justify-center h-full min-h-55 gap-2 text-blue-600">
                 <Spinner cls="w-5 h-5" />
                 <span className="text-sm">Loading scrap details...</span>
               </div>
@@ -713,8 +676,6 @@ const ScrapDetails = () => {
                     </th>
 
                     {sortHeader("Cabinet Serial", "CabinetSerial")}
-                    {sortHeader("PSNo", "PSNo")}
-                    {sortHeader("DocNo", "DocNo")}
                     {sortHeader("Scrap Reason", "Remark")}
                     {sortHeader("Operator", "UserName")}
                     {sortHeader("Scrap Date", "ScrapDate")}
@@ -783,15 +744,7 @@ const ScrapDetails = () => {
                             </div>
                           </td>
 
-                          <td className="px-3 py-2 border-b border-slate-100 text-slate-600 font-mono whitespace-nowrap">
-                            {row.PSNo || "—"}
-                          </td>
-
-                          <td className="px-3 py-2 border-b border-slate-100 text-slate-600 font-mono whitespace-nowrap">
-                            {row.DocNo || "—"}
-                          </td>
-
-                          <td className="px-3 py-2 border-b border-slate-100 min-w-[180px] max-w-[260px]">
+                          <td className="px-3 py-2 border-b border-slate-100 min-w-45 max-w-65">
                             <span
                               title={row.Remark || ""}
                               className="block truncate text-slate-700"
@@ -860,6 +813,13 @@ const ScrapDetails = () => {
                                         PSNo:{" "}
                                         <span className="font-mono text-slate-700">
                                           {row.PSNo}
+                                        </span>
+                                        <span className="mx-1.5 text-slate-300">
+                                          ·
+                                        </span>
+                                        DocNo:{" "}
+                                        <span className="font-mono text-slate-700">
+                                          {row.DocNo}
                                         </span>
                                       </p>
                                     </div>
