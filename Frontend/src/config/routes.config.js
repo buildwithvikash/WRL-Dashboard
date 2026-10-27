@@ -65,6 +65,9 @@ const ComponentTraceability = lazy(
 const Barcodes = lazy(
   () => import("../pages/Production/Traceability/Barcodes"),
 );
+const ScrapDetails = lazy(
+  () => import("../pages/Production/Traceability/ScrapDetails"),
+);
 
 // ---------> IOT Module
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -423,6 +426,12 @@ export const ROUTE_CONFIG = [
         path: "/production/barcode-report",
         label: "Barcodes",
         component: Barcodes,
+        group: "traceability",
+      },
+      {
+        path: "/production/scrap-details",
+        label: "Scrap Details",
+        component: ScrapDetails,
         group: "traceability",
       },
     ],

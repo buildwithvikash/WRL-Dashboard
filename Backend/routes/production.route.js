@@ -98,6 +98,11 @@ import {
   FoamingBarcodeSummaryExportData,
   getFoamingBarcodeSummarySummary,
 } from "../controllers/production/traceability/barcode.controller.js";
+import {
+  getScrapDetails,
+  getScrapDetailsExportData,
+  getScrapDetailsSummary,
+} from "../controllers/production/traceability/scrap-details.controller.js";
 
 const router = express.Router();
 
@@ -265,4 +270,8 @@ router.get("/foaming-barcode-summary", getFoamingBarcodeSummary);
 router.get("/export-foaming-barcode-summary", FoamingBarcodeSummaryExportData);
 router.get("/foaming-barcode-summary-summary", getFoamingBarcodeSummarySummary);
 
+// -----------------> Scrap Details
+router.get("/scrap-details", getScrapDetails);
+router.get("/export-scrap-details", getScrapDetailsExportData);
+router.get("/scrap-details-summary", getScrapDetailsSummary);
 export default router;
