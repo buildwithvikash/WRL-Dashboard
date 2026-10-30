@@ -43,6 +43,7 @@ const GROUPS = [
       "LineTaktTime1",
       "LineMonthlyProduction1",
       "LineTarget1",
+      "DailyProductionTarget1",
     ],
   },
   {
@@ -53,6 +54,7 @@ const GROUPS = [
       "StationName2",
       "LineTaktTime2",
       "LineMonthlyProduction2",
+      "DailyProductionTarget2",
     ],
   },
   {
@@ -86,8 +88,10 @@ const NUM_FIELDS = new Set([
   "LineTaktTime1",
   "LineMonthlyProduction1",
   "LineTarget1",
+  "DailyProductionTarget1",
   "LineTaktTime2",
   "LineMonthlyProduction2",
+  "DailyProductionTarget2",
 ]);
 
 const ALL_COLS = ["Id", ...GROUPS.flatMap((g) => g.fields)];
@@ -103,10 +107,12 @@ const COL_LABELS = {
   LineTaktTime1: "Cycle Time 1 (s)",
   LineMonthlyProduction1: "Monthly Prod 1",
   LineTarget1: "Target UPH",
+  DailyProductionTarget1: "Daily Production Target 1",
   StationCode2: "Station Code 2",
   StationName2: "Station Name 2",
   LineTaktTime2: "Cycle Time 2 (s)",
   LineMonthlyProduction2: "Monthly Prod 2",
+  DailyProductionTarget2: "Daily Production Target 2",
   QualityProcessCode: "Quality Process Code",
   QualityLineName: "Quality Line Name",
   SectionName: "Section Name",
@@ -128,10 +134,12 @@ const COL_WIDTHS = {
   LineTaktTime1: 12,
   LineMonthlyProduction1: 16,
   LineTarget1: 11,
+  DailyProductionTarget1: 18,
   StationCode2: 14,
   StationName2: 18,
   LineTaktTime2: 12,
   LineMonthlyProduction2: 16,
+  DailyProductionTarget2: 18,
   QualityProcessCode: 26,
   QualityLineName: 18,
   SectionName: 26,
@@ -411,6 +419,8 @@ export const exportDashboardConfigs = tryCatch(async (req, res) => {
       "Monthly production plan quantity for Station 1.",
     ],
     ["LineTarget1", "UPH (Units Per Hour) target."],
+    ["DailyProductionTarget1", "Daily production target for Production Display 1."],
+    ["DailyProductionTarget2", "Daily production target for Production Display 2."],
     [
       "StationCode2",
       "Secondary station code for FG Loading / Display 2. Optional.",
@@ -551,10 +561,12 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
       lineTaktTime1: safeInt(get("LineTaktTime1"), 40),
       lineMonthlyProduction1: safeInt(get("LineMonthlyProduction1"), 0),
       lineTarget1: safeInt(get("LineTarget1"), 0),
+      dailyProductionTarget1: safeInt(get("DailyProductionTarget1"), 0),
       stationCode2: String(get("StationCode2") ?? "").trim() || null,
       stationName2: String(get("StationName2") ?? "").trim() || null,
       lineTaktTime2: safeInt(get("LineTaktTime2")),
       lineMonthlyProduction2: safeInt(get("LineMonthlyProduction2")),
+      dailyProductionTarget2: safeInt(get("DailyProductionTarget2"), 0),
       qualityProcessCode:
         String(get("QualityProcessCode") ?? "").trim() || null,
       qualityLineName: String(get("QualityLineName") ?? "").trim() || null,
@@ -613,6 +625,8 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
           .input("LineTaktTime1", sql.Int, rec.lineTaktTime1)
           .input("LineMonthlyProduction1", sql.Int, rec.lineMonthlyProduction1)
           .input("LineTarget1", sql.Int, rec.lineTarget1)
+          .input("DailyProductionTarget1", sql.Int, rec.dailyProductionTarget1)
+          .input("DailyProductionTarget2", sql.Int, rec.dailyProductionTarget2)
           .input("StationCode2", sql.NVarChar(50), rec.stationCode2)
           .input("StationName2", sql.NVarChar(100), rec.stationName2)
           .input("LineTaktTime2", sql.Int, rec.lineTaktTime2)
@@ -634,7 +648,10 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
             SET DashboardName=@DashboardName, LineName=@LineName, LineCode=@LineCode,
                 StationCode1=@StationCode1, StationName1=@StationName1,
                 LineTaktTime1=@LineTaktTime1, LineMonthlyProduction1=@LineMonthlyProduction1,
-                LineTarget1=@LineTarget1, StationCode2=@StationCode2, StationName2=@StationName2,
+                LineTarget1=@LineTarget1,
+                DailyProductionTarget1=@DailyProductionTarget1,
+                DailyProductionTarget2=@DailyProductionTarget2,
+                StationCode2=@StationCode2, StationName2=@StationName2,
                 LineTaktTime2=@LineTaktTime2, LineMonthlyProduction2=@LineMonthlyProduction2,
                 QualityProcessCode=@QualityProcessCode, QualityLineName=@QualityLineName,
                 SectionName=@SectionName, WorkingTimeMin=@WorkingTimeMin,
@@ -656,6 +673,8 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
           .input("LineTaktTime1", sql.Int, rec.lineTaktTime1)
           .input("LineMonthlyProduction1", sql.Int, rec.lineMonthlyProduction1)
           .input("LineTarget1", sql.Int, rec.lineTarget1)
+          .input("DailyProductionTarget1", sql.Int, rec.dailyProductionTarget1)
+          .input("DailyProductionTarget2", sql.Int, rec.dailyProductionTarget2)
           .input("StationCode2", sql.NVarChar(50), rec.stationCode2)
           .input("StationName2", sql.NVarChar(100), rec.stationName2)
           .input("LineTaktTime2", sql.Int, rec.lineTaktTime2)
@@ -675,13 +694,15 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
           .input("ShowLoss", sql.Bit, rec.showLoss).query(`
             INSERT INTO dbo.DashboardConfig (
               DashboardName,LineName,LineCode,StationCode1,StationName1,
-              LineTaktTime1,LineMonthlyProduction1,LineTarget1,StationCode2,StationName2,
+              LineTaktTime1,LineMonthlyProduction1,LineTarget1,
+              DailyProductionTarget1,DailyProductionTarget2,StationCode2,StationName2,
               LineTaktTime2,LineMonthlyProduction2,QualityProcessCode,QualityLineName,
               SectionName,WorkingTimeMin,IsActive,CreatedAt,UpdatedAt,
               ShowDisplay1,ShowDisplay2,ShowHourly,ShowQuality,ShowLoss
             ) VALUES (
               @DashboardName,@LineName,@LineCode,@StationCode1,@StationName1,
-              @LineTaktTime1,@LineMonthlyProduction1,@LineTarget1,@StationCode2,@StationName2,
+              @LineTaktTime1,@LineMonthlyProduction1,@LineTarget1,
+              @DailyProductionTarget1,@DailyProductionTarget2,@StationCode2,@StationName2,
               @LineTaktTime2,@LineMonthlyProduction2,@QualityProcessCode,@QualityLineName,
               @SectionName,@WorkingTimeMin,1,GETDATE(),GETDATE(),
               @ShowDisplay1,@ShowDisplay2,@ShowHourly,@ShowQuality,@ShowLoss
@@ -817,6 +838,7 @@ AvgUPH AS (
 
 SELECT
     dc.LineMonthlyProduction1 AS MonthlyPlanQty,
+    dc.DailyProductionTarget1 AS DailyProductionTarget,
     dc.WorkingTimeMin,
     dc.LineTaktTime1          AS TactTimeSec,
     -- Actual Working Minutes
@@ -853,55 +875,53 @@ ROUND(
 
     sa.ActualFG AS ActualQty,
 
-    -- Loss Time
-    CAST(
-      (
-        (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-        - sa.ActualFG
-      ) * dc.LineTaktTime1 / 60.0
-    AS INT) AS LossTime,
+    -- Loss Units: target UPH x elapsed productive hours minus actual production.
+    -- Only positive shortfalls are counted as loss; overproduction is not negative loss.
+    CAST(CASE WHEN
+      (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG > 0
+      THEN (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG
+      ELSE 0 END AS INT) AS LossUnits,
 
-    -- Loss Units
-    CAST(
-      (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-      - sa.ActualFG
-    AS INT) AS LossUnits,
+    -- Loss Time is derived from production shortfall and configured takt time.
+    CAST((CASE WHEN
+      (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG > 0
+      THEN (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG
+      ELSE 0 END) * dc.LineTaktTime1 / 60.0 AS INT) AS LossTime,
 
-    -- Balance
-    CAST(dc.LineMonthlyProduction1 * 1.0
-      / NULLIF(DAY(EOMONTH(@shiftStart)), 0)
-    AS INT) - sa.ActualFG AS BalanceQty,
+    -- Balance is the full daily target minus actual production.
+    dc.DailyProductionTarget1 - sa.ActualFG AS BalanceQty,
 
     -- Prorated Target
     CAST(
         ((60.0 / NULLIF(dc.LineTaktTime1, 0)) * dc.WorkingTimeMin) * 0.85
     AS INT) AS ProratedTarget,
 
-    -- Performance
-    CAST(
-      sa.ActualFG * 100.0
-      / NULLIF(
-          (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-          * (DATEDIFF(MINUTE, @shiftStart, GETDATE()) * 1.0
-             / NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0))
-        , 0)
+    -- Performance and efficiency are measured against the configured daily target,
+    -- prorated to elapsed productive time for the live shift view.
+    CAST(sa.ActualFG * 100.0 / NULLIF(
+      dc.DailyProductionTarget1 *
+      (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 /
+       NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0)), 0)
     AS DECIMAL(6,2)) AS PerformancePct,
 
-    -- Efficiency
-    CAST(
-      sa.ActualFG * 100.0
-      / NULLIF(
-          (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-          * (DATEDIFF(MINUTE, @shiftStart, GETDATE()) * 1.0
-             / NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0))
-        , 0)
+    CAST(sa.ActualFG * 100.0 / NULLIF(dc.DailyProductionTarget1, 0)
     AS DECIMAL(6,2)) AS EfficiencyTillNow,
 
-    -- Actual UPH
-    CAST(
-      sa.ActualFG * 60.0
-      / NULLIF(DATEDIFF(MINUTE, @shiftStart, GETDATE()), 0)
+    -- Actual UPH and difference from target UPH.
+    CAST(sa.ActualFG * 60.0 / NULLIF(
+      DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END), 0)
     AS DECIMAL(6,2)) AS ActualUPH,
+
+    CAST((sa.ActualFG * 60.0 / NULLIF(
+      DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END), 0)) - dc.LineTarget1
+    AS DECIMAL(6,2)) AS UPHDifference,
 
     CAST(au.AvgUPH AS DECIMAL(10,2)) AS ActualUPH_Avg,
 
@@ -1002,6 +1022,7 @@ AvgUPH AS (
 
 SELECT
     dc.LineMonthlyProduction1 AS MonthlyPlanQty,
+    dc.DailyProductionTarget2 AS DailyProductionTarget,
     dc.WorkingTimeMin,
     dc.LineTaktTime1          AS TactTimeSec,
     -- Actual Working Minutes
@@ -1038,55 +1059,51 @@ SELECT
 
     sa.ActualFG AS ActualQty,
 
-    -- Loss Time
-    CAST(
-      (
-        (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-        - sa.ActualFG
-      ) * dc.LineTaktTime1 / 60.0
-    AS INT) AS LossTime,
+    -- Loss Units: target UPH x elapsed productive hours minus actual production.
+    CAST(CASE WHEN
+      (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG > 0
+      THEN (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG
+      ELSE 0 END AS INT) AS LossUnits,
 
-    -- Loss Units
-    CAST(
-      (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-      - sa.ActualFG
-    AS INT) AS LossUnits,
+    CAST((CASE WHEN
+      (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG > 0
+      THEN (dc.LineTarget1 * (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 / 60.0)) - sa.ActualFG
+      ELSE 0 END) * dc.LineTaktTime1 / 60.0 AS INT) AS LossTime,
 
-    -- Balance
-    CAST(dc.LineMonthlyProduction1 * 1.0
-      / NULLIF(DAY(EOMONTH(@shiftStart)), 0)
-    AS INT) - sa.ActualFG AS BalanceQty,
+    -- Balance is the full daily target minus actual production.
+    dc.DailyProductionTarget2 - sa.ActualFG AS BalanceQty,
 
     -- Prorated Target
     CAST(
         ((60.0 / NULLIF(dc.LineTaktTime1, 0)) * dc.WorkingTimeMin) * 0.85
     AS INT) AS ProratedTarget,
 
-    -- Performance
-    CAST(
-      sa.ActualFG * 100.0
-      / NULLIF(
-          (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-          * (DATEDIFF(MINUTE, @shiftStart, GETDATE()) * 1.0
-             / NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0))
-        , 0)
+    -- Performance and efficiency are measured against the configured daily target,
+    -- prorated to elapsed productive time for the live shift view.
+    CAST(sa.ActualFG * 100.0 / NULLIF(
+      dc.DailyProductionTarget2 *
+      (DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END) * 0.92 /
+       NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0)), 0)
     AS DECIMAL(6,2)) AS PerformancePct,
 
-    -- Efficiency
-    CAST(
-      sa.ActualFG * 100.0
-      / NULLIF(
-          (dc.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0))
-          * (DATEDIFF(MINUTE, @shiftStart, GETDATE()) * 1.0
-             / NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0))
-        , 0)
+    CAST(sa.ActualFG * 100.0 / NULLIF(dc.DailyProductionTarget2, 0)
     AS DECIMAL(6,2)) AS EfficiencyTillNow,
 
-    -- Actual UPH
-    CAST(
-      sa.ActualFG * 60.0
-      / NULLIF(DATEDIFF(MINUTE, @shiftStart, GETDATE()), 0)
+    -- Actual UPH and difference from target UPH.
+    CAST(sa.ActualFG * 60.0 / NULLIF(
+      DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END), 0)
     AS DECIMAL(6,2)) AS ActualUPH,
+
+    CAST((sa.ActualFG * 60.0 / NULLIF(
+      DATEDIFF(MINUTE, @shiftStart,
+        CASE WHEN GETDATE() > @shiftEnd THEN @shiftEnd ELSE GETDATE() END), 0)) - dc.LineTarget1
+    AS DECIMAL(6,2)) AS UPHDifference,
 
     CAST(au.AvgUPH AS DECIMAL(10,2)) AS ActualUPH_Avg,
 
@@ -1178,6 +1195,8 @@ export const createDashboardConfig = tryCatch(async (req, res) => {
     lineTaktTime1,
     lineMonthlyProduction1,
     lineTarget1,
+    dailyProductionTarget1,
+    dailyProductionTarget2,
     stationCode2,
     stationName2,
     lineTaktTime2,
@@ -1240,6 +1259,8 @@ export const createDashboardConfig = tryCatch(async (req, res) => {
         safeInt(lineMonthlyProduction1, 0),
       )
       .input("LineTarget1", sql.Int, safeInt(lineTarget1, 0))
+      .input("DailyProductionTarget1", sql.Int, safeInt(dailyProductionTarget1, 0))
+      .input("DailyProductionTarget2", sql.Int, safeInt(dailyProductionTarget2, 0))
       .input("StationCode2", sql.NVarChar(50), stationCode2?.trim() || null)
       .input("StationName2", sql.NVarChar(100), stationName2?.trim() || null)
       .input("LineTaktTime2", sql.Int, safeInt(lineTaktTime2))
@@ -1288,12 +1309,15 @@ export const createDashboardConfig = tryCatch(async (req, res) => {
           ShowDisplay2 BIT,
           ShowHourly   BIT,
           ShowQuality  BIT,
-          ShowLoss     BIT
+          ShowLoss     BIT,
+          DailyProductionTarget1 INT,
+          DailyProductionTarget2 INT
         );
 
         INSERT INTO dbo.DashboardConfig (
           DashboardName, LineName, LineCode,
           StationCode1, StationName1, LineTaktTime1, LineMonthlyProduction1, LineTarget1,
+          DailyProductionTarget1, DailyProductionTarget2,
           StationCode2, StationName2, LineTaktTime2, LineMonthlyProduction2,
           QualityProcessCode, QualityLineName, SectionName, WorkingTimeMin,
           IsActive, CreatedAt, UpdatedAt,ShowDisplay1, ShowDisplay2, ShowHourly, ShowQuality, ShowLoss
@@ -1302,6 +1326,7 @@ export const createDashboardConfig = tryCatch(async (req, res) => {
         VALUES (
           @DashboardName, @LineName, @LineCode,
           @StationCode1, @StationName1, @LineTaktTime1, @LineMonthlyProduction1, @LineTarget1,
+          @DailyProductionTarget1, @DailyProductionTarget2,
           @StationCode2, @StationName2, @LineTaktTime2, @LineMonthlyProduction2,
           @QualityProcessCode, @QualityLineName, @SectionName, @WorkingTimeMin,
           1, GETDATE(), GETDATE(),@ShowDisplay1, @ShowDisplay2, @ShowHourly, @ShowQuality, @ShowLoss
@@ -1337,6 +1362,8 @@ export const updateDashboardConfig = tryCatch(async (req, res) => {
     lineTaktTime1,
     lineMonthlyProduction1,
     lineTarget1,
+    dailyProductionTarget1,
+    dailyProductionTarget2,
     stationCode2,
     stationName2,
     lineTaktTime2,
@@ -1377,6 +1404,8 @@ export const updateDashboardConfig = tryCatch(async (req, res) => {
         Number(lineMonthlyProduction1) || 0,
       )
       .input("LineTarget1", sql.Int, Number(lineTarget1) || 0)
+      .input("DailyProductionTarget1", sql.Int, safeInt(dailyProductionTarget1, 0))
+      .input("DailyProductionTarget2", sql.Int, safeInt(dailyProductionTarget2, 0))
       .input("StationCode2", sql.NVarChar(50), stationCode2?.trim() || null)
       .input("StationName2", sql.NVarChar(100), stationName2?.trim() || null)
       .input("LineTaktTime2", sql.Int, Number(lineTaktTime2) || null)
@@ -1413,6 +1442,8 @@ export const updateDashboardConfig = tryCatch(async (req, res) => {
           LineTaktTime1 INT,
           LineMonthlyProduction1 INT,
           LineTarget1 INT,
+          DailyProductionTarget1 INT,
+          DailyProductionTarget2 INT,
           StationCode2 NVARCHAR(50),
           StationName2 NVARCHAR(100),
           LineTaktTime2 INT,
@@ -1440,6 +1471,8 @@ export const updateDashboardConfig = tryCatch(async (req, res) => {
           LineTaktTime1          = @LineTaktTime1,
           LineMonthlyProduction1 = @LineMonthlyProduction1,
           LineTarget1            = @LineTarget1,
+          DailyProductionTarget1  = @DailyProductionTarget1,
+          DailyProductionTarget2  = @DailyProductionTarget2,
           StationCode2           = @StationCode2,
           StationName2           = @StationName2,
           LineTaktTime2          = @LineTaktTime2,
@@ -1465,6 +1498,8 @@ export const updateDashboardConfig = tryCatch(async (req, res) => {
           INSERTED.LineTaktTime1,
           INSERTED.LineMonthlyProduction1,
           INSERTED.LineTarget1,
+          INSERTED.DailyProductionTarget1,
+          INSERTED.DailyProductionTarget2,
           INSERTED.StationCode2,
           INSERTED.StationName2,
           INSERTED.LineTaktTime2,
