@@ -247,12 +247,9 @@ const ProductionDisplay1 = ({
       >
         {/* Top KPI row */}
         <div className="shrink-0 grid grid-cols-5" style={{ gap: s(16) }}>
-          <Tile
-            label="Shift Target"
-            value={fmt(d.ShiftOutputTarget)}
-            color="#15803d"
-          />
+          <Tile label="Daily Target" value={fmt(config?.dailyProductionTarget1 ?? config?.DailyProductionTarget1)} color="#7c3aed" />
           <Tile label="Shift Output" value={fmt(d.ActualQty)} color={ACCENT} />
+
           <Tile
             label="Performance"
             value={fmt(perf, 1)}
