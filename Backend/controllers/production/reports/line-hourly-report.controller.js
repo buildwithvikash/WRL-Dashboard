@@ -1272,8 +1272,53 @@ export const getFoamingLinePerformanceHourlyReport = tryCatch(
 );
 
 // -----------------------------------------------------------------------------
-//  CATEGORY PERFORMANCE (per stage, grouped by material category)
+//  CATEGORY PERFORMANCE (per stage, rolled up into 8 display categories)
 // -----------------------------------------------------------------------------
+
+// Raw MaterialCategory.Name  ->  display category
+const CATEGORY_MAP = {
+  Freezer: "Freezer",
+  Cooler: "Freezer",
+  DUAL: "Freezer",
+  "VACCINE FREEZER": "Freezer",
+  ILR: "Freezer",
+  EUTECTIC: "Freezer",
+  MEDICAL: "Freezer",
+  "CHEST COOLER": "Freezer",
+  "COOLER AND FREEZER": "Freezer",
+  "ICE LINE REFRIGRTATOR": "Freezer",
+  "4 DOOR REFRIGERATOR": "Freezer",
+  "Upright Glass Door Freezer": "Freezer",
+  "Eutectic Fow Freezer": "FOW",
+  "FOW MODELS": "FOW",
+  "Choc Cooler": "Chocolate",
+  "Visi Cooler": "Visi Cooler",
+  "3 DOOR UNDERCOUNTER REFRIGERATOR": "Under Counter",
+  "2 DOOR UNDERCOUNTER REFRIGERATOR": "Under Counter",
+  "1 DOOR UNDERCOUNTER REFRIGERATOR": "Under Counter",
+  "2 GLASS DOOR UNDERCOUNTER REFRIGERATOR": "Under Counter",
+  "Storage Water Cooler": "SWC",
+  Compact: "Compact",
+  "Reach-In": "Reach-In",
+};
+
+// Display order on the widget
+const DISPLAY_CATEGORIES = [
+  "Freezer",
+  "FOW",
+  "Chocolate",
+  "Visi Cooler",
+  "Under Counter",
+  "SWC",
+  "Compact",
+  "Reach-In",
+];
+
+// Case/space-insensitive lookup
+const CATEGORY_LOOKUP = Object.fromEntries(
+  Object.entries(CATEGORY_MAP).map(([k, v]) => [k.trim().toLowerCase(), v]),
+);
+
 const buildCategoryQuery = (activityFilter) => `
   WITH Psno AS (
     SELECT DocNo, Material
@@ -1281,19 +1326,41 @@ const buildCategoryQuery = (activityFilter) => `
     WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
   )
   SELECT
-    COALESCE(mc.Name, 'Uncategorised') AS category,
+    mc.Name AS RawCategory,
     COUNT(*) AS TotalCount
   FROM Psno
-  INNER JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
-  INNER JOIN WorkCenter c        ON b.StationCode  = c.StationCode
-  INNER JOIN Users us            ON us.UserCode    = b.Operator
-  INNER JOIN Material m          ON m.MatCode      = Psno.Material
+  INNER JOIN ProcessActivity b   ON b.PSNo          = Psno.DocNo
+  INNER JOIN WorkCenter c        ON b.StationCode   = c.StationCode
+  INNER JOIN Users us            ON us.UserCode     = b.Operator
+  INNER JOIN Material m          ON m.MatCode       = Psno.Material
   LEFT  JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
   WHERE
     b.ActivityOn BETWEEN @StartTime AND @EndTime
     AND ${activityFilter}
-  GROUP BY mc.CategoryCode, mc.Name
-  ORDER BY TotalCount DESC;`;
+  GROUP BY mc.Name;`;
+
+const rollUpCategories = (rows) => {
+  const totals = Object.fromEntries(DISPLAY_CATEGORIES.map((c) => [c, 0]));
+  const unmapped = {};
+
+  for (const row of rows) {
+    const raw = String(row.RawCategory ?? "").trim();
+    const count = Number(row.TotalCount) || 0;
+    const target = CATEGORY_LOOKUP[raw.toLowerCase()];
+
+    if (target) totals[target] += count;
+    else unmapped[raw || "(none)"] = count;
+  }
+
+  if (Object.keys(unmapped).length) {
+    console.warn("[CategoryPerformance] Unmapped categories:", unmapped);
+  }
+
+  return DISPLAY_CATEGORIES.map((category) => ({
+    category,
+    TotalCount: totals[category],
+  }));
+};
 
 const CATEGORY_FILTERS = {
   finalFg: `
@@ -1327,7 +1394,7 @@ const makeCategoryController = (filterKey, label) =>
       throw new AppError("StartTime and EndTime are required", 400);
     }
 
-    const data = await runTimeQuery(
+    const rows = await runTimeQuery(
       buildCategoryQuery(CATEGORY_FILTERS[filterKey]),
       StartTime,
       EndTime,
@@ -1336,7 +1403,7 @@ const makeCategoryController = (filterKey, label) =>
     res.status(200).json({
       success: true,
       message: `${label} category performance fetched successfully`,
-      data,
+      data: rollUpCategories(rows),
     });
   });
 
