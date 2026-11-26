@@ -96,9 +96,6 @@ import {
   getStopLossLines,
   getStopLossSummary,
   getStopLossStations,
-  getStopLossToday,
-  getStopLossYesterday,
-  getStopLossMTD,
 } from "../controllers/production/reports/stop-loss.controller.js";
 import {
   componentTraceabilityExportData,
@@ -247,10 +244,26 @@ router.get(
   getFoamingLinePerformanceHourlyReport,
 );
 
-router.get("/line-hourly-report/final-fg/category-performance", authenticate, getFinalFGCategoryPerformance);
-router.get("/line-hourly-report/final-loading/category-performance", authenticate, getFinalLoadingCategoryPerformance);
-router.get("/line-hourly-report/post-foaming/category-performance", authenticate, getPostFoamingCategoryPerformance);
-router.get("/line-hourly-report/foaming/category-performance", authenticate, getFoamingCategoryPerformance);
+router.get(
+  "/line-hourly-report/final-fg/category-performance",
+  authenticate,
+  getFinalFGCategoryPerformance,
+);
+router.get(
+  "/line-hourly-report/final-loading/category-performance",
+  authenticate,
+  getFinalLoadingCategoryPerformance,
+);
+router.get(
+  "/line-hourly-report/post-foaming/category-performance",
+  authenticate,
+  getPostFoamingCategoryPerformance,
+);
+router.get(
+  "/line-hourly-report/foaming/category-performance",
+  authenticate,
+  getFoamingCategoryPerformance,
+);
 
 // -----------------> Line Wise Report
 // Final Loading — model breakdown
@@ -349,9 +362,6 @@ router.get("/stop-loss/detail", authenticate, getStopLossDetail);
 router.get("/stop-loss/lines", authenticate, getStopLossLines);
 router.get("/stop-loss/locations", authenticate, getStopLossLocations);
 router.get("/stop-loss/stations", authenticate, getStopLossStations);
-router.get("/stop-loss/today", authenticate, getStopLossToday); // ← new
-router.get("/stop-loss/yesterday", authenticate, getStopLossYesterday); // ← new
-router.get("/stop-loss/mtd", authenticate, getStopLossMTD); // ← new
 
 // -----------------> Component Traceability
 router.get("/component-traceability", authenticate, generateReport);
